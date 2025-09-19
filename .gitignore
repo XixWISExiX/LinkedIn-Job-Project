@@ -1,1 +1,2 @@
-backend/datasets/*
+backend/datasets/**
+!backend/datasets/.gitkeep
