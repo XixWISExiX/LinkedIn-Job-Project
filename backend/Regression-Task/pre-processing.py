@@ -1,9 +1,9 @@
 '''
 python Regression-Task/pre_processing.py
 '''
-# https://www.geeksforgeeks.org/machine-learning/association-rule/
+# https://www.geeksforgeeks.org/machine-learning/regression-in-machine-learning/
 # Question to answer: 
-# Which skill bundles co-occur within roles? (Associative)
+# Predict the average salary, give a good correlation? (Regression)
 
 import re
 import numpy as np
@@ -94,3 +94,4 @@ def extract_skills(text: str, lex_buckets: dict) -> set:
             if ph in bucket:
                 found.add(ph)
     return found # found key words in job description
+
