@@ -1,3 +1,15 @@
+'''
+python Regression-Task/associative_algo.py --config=Regression-Task/regression_args.yml
+'''
+# Regression Rule Mining for Pairs
+
+import argparse
+import yaml
+from typing import Any, Dict
+from pre_processing import *
+
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     '''
     Creates what arguments to take in and use in the Assoiation Rule Mining Process.
@@ -75,3 +87,4 @@ if __name__ == "__main__":
 
     company = args.company_filter
     title = args.title_filter
+
