@@ -3,12 +3,9 @@ filter:
   title_filter: "Software"          # or "Data Scientist"
 
 mining:
-  min_support: 0.05
-  min_confidence: 0.4
-  top_k: 50
-  max_phrase_len: 4
-  min_skill_df: 5
-
+  independent_variables: 1
+  dependent_variables: 1
+  
 paths:
   job_postings_csv_in: datasets/archive/postings.csv
   skills_lexicon_csv_in: datasets/universal_skills_catalog.csv
@@ -16,11 +13,10 @@ paths:
 
 output:
   out_csv_cols:
-    - antecedent
-    - consequent
-    - confidence
-    - overall_mean_salary
-    - pair_premium_vs_overall
-    - antecedent_premium_vs_overall
-    - antecedent_n
+    - R_squared
+    - Mean Squared Error
+    - F_statistic
+    - P_values
+    - Confidence_bounds
   out_csv: datasets/output/regression-output1.csv
+
