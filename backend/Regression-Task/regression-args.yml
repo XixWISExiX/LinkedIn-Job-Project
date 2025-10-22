@@ -13,10 +13,11 @@ paths:
 
 output:
   out_csv_cols:
-    - R_squared
-    - Mean Squared Error
-    - F_statistic
-    - P_values
-    - Confidence_bounds
+    - r_squared
+    - mean_squared_error
+    - f_statistic
+    - p_values
+    - confidence_bounds
   out_csv: datasets/output/regression-output1.csv
+
 
