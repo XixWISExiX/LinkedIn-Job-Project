@@ -1,10 +1,6 @@
 filter:
   company_filter: null        # or "Google"
-  title_filter: "Software"          # or "Data Scientist"
-
-mining:
-  independent_variables: 1
-  dependent_variables: 1
+  title_filter: "Software"    # or "Data Scientist"
   
 paths:
   job_postings_csv_in: datasets/archive/postings.csv
@@ -19,5 +15,6 @@ output:
     - p_values
     - confidence_bounds
   out_csv: datasets/output/regression-output1.csv
+
 
 
