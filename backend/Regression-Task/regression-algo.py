@@ -1,7 +1,7 @@
 '''
 python Regression-Task/associative_algo.py --config=Regression-Task/regression_args.yml
 '''
-# Regression Rule Mining for Pairs
+# Regression algorithm for salary
 
 import argparse
 import yaml
@@ -12,26 +12,14 @@ from pre_processing import *
 
 def build_arg_parser() -> argparse.ArgumentParser:
     '''
-    Creates what arguments to take in and use in the Assoiation Rule Mining Process.
+    Creates what arguments to take in and use for the regression algorithm
     '''
 
-    p = argparse.ArgumentParser(description="Association Rule Mining Data Parser",
+    p = argparse.ArgumentParser(description="Regression Parser",
                                 fromfile_prefix_chars='@')
 
-    # -- Filter Args -- 
-    p.add_argument("--company-filter",  type=str, default=None, help="seed to put into distribution sampling")
-    p.add_argument("--title-filter",  type=str, default=None, help="seed to put into distribution sampling")
-
-    # -- Mining Args -- 
-    p.add_argument("--min-support",  type=float, default=0.05, help="min support for association mining output")
-    p.add_argument("--min-confidence",  type=float, default=0.4, help="min confidence for association mining output")
-    p.add_argument("--top-k",  type=int, default=50, help="top k entries for association mining output")
-    p.add_argument("--max-phrase-len",  type=int, default=4, help="max skill phrase length (words) for association mining output")
-    p.add_argument("--min-skill-df",  type=int, default=5, help="min skill difference for association mining output")
 
     # -- Input Paths -- 
-    p.add_argument("--job-postings-csv-in",  type=str, default="datasets/archive/postings.csv", help="path to read job postings CSV")
-    p.add_argument("--skills-lexicon-csv-in",  type=str, default="datasets/universal_skills_catalog.csv", help="path to read skills lexicon CSV")
     p.add_argument("--salaries-csv-in",  type=str, default="datasets/archive/jobs/salaries.csv", help="path to read salaries CSV")
 
     # -- Output CSV Columns -- 
@@ -87,4 +75,5 @@ if __name__ == "__main__":
 
     company = args.company_filter
     title = args.title_filter
+
 
