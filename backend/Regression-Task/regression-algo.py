@@ -64,8 +64,8 @@ if __name__ == "__main__":
     if args.config:
         with open(args.config, "r") as f:
             cfg_raw = yaml.safe_load(f) or {}
-        cfg_flat  = flatten(cfg_raw)                  # e.g., "mining.min_support" -> 0.05
-        cfg_mapped = yaml_keys_to_arg_names(cfg_flat) # e.g., "min_support" -> 0.05
+        cfg_flat  = flatten(cfg_raw)              
+        cfg_mapped = yaml_keys_to_arg_names(cfg_flat)
         # filter keys to only those known by argparse
         known = {a.dest for a in parser._actions}
         cfg_defaults = {k: v for k, v in cfg_mapped.items() if k in known}
@@ -75,5 +75,6 @@ if __name__ == "__main__":
 
     company = args.company_filter
     title = args.title_filter
+
 
 
