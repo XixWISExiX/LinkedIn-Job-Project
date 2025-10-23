@@ -3,8 +3,6 @@ filter:
   title_filter: "Software"    # or "Data Scientist"
   
 paths:
-  job_postings_csv_in: datasets/archive/postings.csv
-  skills_lexicon_csv_in: datasets/universal_skills_catalog.csv
   salaries_csv_in: datasets/archive/jobs/salaries.csv
 
 output:
@@ -15,6 +13,7 @@ output:
     - p_values
     - confidence_bounds
   out_csv: datasets/output/regression-output0.csv
+
 
 
 
