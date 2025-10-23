@@ -1,7 +1,3 @@
-filter:
-  company_filter: null        # or "Google"
-  title_filter: "Software"    # or "Data Scientist"
-  
 paths:
   salaries_csv_in: datasets/archive/jobs/salaries.csv
 
@@ -12,7 +8,9 @@ output:
     - f_statistic
     - p_values
     - confidence_bounds
+    
   out_csv: datasets/output/regression-output0.csv
+
 
 
 
