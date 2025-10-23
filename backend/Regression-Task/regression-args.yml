@@ -14,7 +14,8 @@ output:
     - f_statistic
     - p_values
     - confidence_bounds
-  out_csv: datasets/output/regression-output1.csv
+  out_csv: datasets/output/regression-output0.csv
+
 
 
 
