@@ -3,14 +3,15 @@ paths:
 
 output:
   out_csv_cols:
-    - mean_squared_error
-    - r2_score
-    - explained_variance_score
-    - max_error
-    - confusion_matrix
-    - f1_score
+    - salary_mean_squared_error
+    - salary_r2_score
+    - salary_explained_variance_score
+    - salary_max_error
+    - salary_confusion_matrix
+    - salary_f1_score
     
   out_csv: datasets/output/regression-output0.csv
+
 
 
 
