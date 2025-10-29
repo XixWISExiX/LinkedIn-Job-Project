@@ -1,0 +1,23 @@
+filter:
+  company_filter: null
+  title_filter: "Software"
+
+input:
+  job_postings_csv_in: "datasets/archive/postings.csv"
+  skills_lexicon_csv_in: "datasets/universal_skills_catalog.csv"
+
+skills:
+  max_phrase_len: 3
+  min_skill_df: 10
+
+clustering:
+  k_values: [3, 5, 7] # will run K-Means for each k
+  max_iter: 100
+  tol: 1e-4
+  random_state: 42
+  normalize: true
+
+plotting:
+  out_dir: "datasets/output/plots"
+  save_prefix: "clusters"
+  show: false
