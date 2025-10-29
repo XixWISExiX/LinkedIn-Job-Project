@@ -23,7 +23,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--salaries-csv-in",  type=str, default="datasets/archive/jobs/salaries.csv", help="path to read salaries CSV")
 
     # -- Output CSV Columns -- 
-    p.add_argument("--out-csv-cols",  type=str, nargs='+', default=['mean_squared_error', 'r2_score', 'explained_variance_score', 'max_error', 'confusion_matrix', 'f1_score'], help="path to save CSV output of regression algo analysis")
+    p.add_argument("--out-csv-cols",  type=str, nargs='+', default=['salary_mean_squared_error', 'salary_r2_score', 'salary_explained_variance_score', 'salary_max_error', 'salary_confusion_matrix', 'salary_f1_score'], help="path to save CSV output of regression algo analysis")
 
     # -- Output Path -- 
     p.add_argument("--out-csv",  type=str, default="datasets/output/regression-output0.csv", help="path to save CSV output of regression analysis")
@@ -72,6 +72,7 @@ if __name__ == "__main__":
         parser.set_defaults(**cfg_defaults)
 
     args = parser.parse_args()
+
 
 
 
