@@ -94,3 +94,60 @@ def extract_skills(text: str, lex_buckets: dict) -> set:
             if ph in bucket:
                 found.add(ph)
     return found # found key words in job description
+
+def build_skill_matrix(postings_csv, lexicon_csv, company=None, title=None, max_phrase_len=3, min_skill_df=10):
+    df = pd.read_csv(postings_csv, low_memory=False)
+    df = standardize_posting_id(df)
+    if company:
+        df = df[df.get("company_name", pd.Series(dtype=object)) == company]
+    if title:
+        titles = df.get("title", pd.Series(dtype=object)).astype(str)
+        df = df[titles.str.contains(title, case=False, na=False, regex=False)]
+    if df.empty:
+        return np.zeros((0,0)), [], df
+
+    desc = df["description"].fillna("").astype(str).drop_duplicates().reset_index(drop=True)
+    lex_buckets = build_lexicon(lexicon_csv, min_len=1, max_len=max_phrase_len)
+    df_counter = Counter()
+    doc_skills = []
+    for d in desc:
+        found = extract_skills(d, lex_buckets)
+        doc_skills.append(found)
+        for s in found:
+            df_counter[s] += 1
+
+    keep = sorted([s for s,c in df_counter.items() if c >= min_skill_df])
+    if not keep:
+        return np.zeros((0,0)), [], df
+    idx = {s:i for i,s in enumerate(keep)}
+    X = np.zeros((len(doc_skills), len(keep)), dtype=np.uint8)
+    for r, sks in enumerate(doc_skills):
+        for s in sks:
+            if s in idx:
+                X[r, idx[s]] = 1
+    df_aligned = df.iloc[:len(X)].copy().reset_index(drop=True)
+    return X, keep, df_aligned
+
+
+def zscore(X):
+    mu = X.mean(axis=0)
+    sigma = X.std(axis=0, ddof=0)
+    sigma[sigma == 0] = 1
+    return (X - mu) / sigma, mu, sigma
+
+
+def get_cluster_skill_labels(X, labels, vocab, top_n=3):
+    cluster_labels = {}
+    X = np.asarray(X)
+    for k in sorted(set(labels)):
+        mask = labels == k
+        if not np.any(mask):
+            cluster_labels[k] = "N/A"
+            continue
+        skill_freq = X[mask].sum(axis=0)
+        top_idx = np.argsort(skill_freq)[::-1][:top_n]
+        top_skills = [vocab[i] for i in top_idx if skill_freq[i] > 0]
+        cluster_labels[k] = ", ".join(top_skills[:top_n]) or "N/A"
+    return cluster_labels
+
+

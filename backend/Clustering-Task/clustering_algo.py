@@ -13,8 +13,8 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from collections import Counter
 from typing import Any, Dict, Tuple
+from sklearn.metrics import silhouette_score  # For cluster quality evaluation
 
 # avoid latex errors
 mpl.rcParams['text.usetex'] = False
@@ -34,13 +34,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--min-skill-df", type=int, default=10)
     p.add_argument("--k-values", type=int, nargs="+", default=[3,5,7])
     p.add_argument("--max-iter", type=int, default=100)
-    p.add_argument("--tol", type=float, default=1e-4)
-    p.add_argument("--random-state", type=int, default=42)
     p.add_argument("--normalize", type=str, default="true", choices=["true","false"])
     p.add_argument("--plot-out-dir", type=str, default="datasets/output/plots")
     p.add_argument("--plot-prefix", type=str, default="clusters")
     p.add_argument("--show-plots", action="store_true")
-    p.add_argument("--labels-out-csv", type=str, default="datasets/output/cluster_labels.csv")
     p.add_argument("--config", type=str, default=None, help="Path to YAML config")
     return p
 
@@ -74,117 +71,47 @@ def pca_transform(X: np.ndarray, n_components: int = 2, center: bool = True) -> 
     return Xc @ comps, comps, mu
 
 
-# k-means clustering algorithm
-class KMeansScratch:
-    def __init__(self, n_clusters=3, max_iter=100, tol=1e-4, random_state=42):
-        self.k = int(n_clusters)
-        self.max_iter = int(max_iter)
-        self.tol = float(tol)
-        self.random_state = int(random_state)
-        self.cluster_centers_ = None
+class KMeans:
+    def __init__(self, n_clusters, max_iters=100):
+        self.n_clusters = n_clusters
+        self.max_iters = max_iters
+        self.centroids = None
         self.labels = None
-        self.inertia_ = None
-
-    @staticmethod
-    def _dist2(a, c):
-        return np.sum((a - c) ** 2, axis=1)
-
-    def _init_centroids(self, X):
-        rng = np.random.default_rng(self.random_state)
-        idx = rng.choice(X.shape[0], size=self.k, replace=False)
-        return X[idx].copy()
 
     def fit(self, X):
-        C = self._init_centroids(X)
-        old_inertia = np.inf
+        # Initialize centroids randomly
+        self.centroids = X[np.random.choice(X.shape[0], self.n_clusters, replace=False)]
 
-        for it in range(self.max_iter):
-            # assign step
-            dists = np.stack([self._dist2(X, c) for c in C], axis=1)
-            labels = np.argmin(dists, axis=1)
+        for _ in range(self.max_iters):
+            # Assign each data point to the nearest centroid
+            labels = self._assign_labels(X)
 
-            # update step
-            newC = np.array([
-                X[labels == j].mean(axis=0) if np.any(labels == j)
-                else X[np.random.randint(0, X.shape[0])]
-                for j in range(self.k)
-            ])
+            # Update centroids
+            new_centroids = self._update_centroids(X, labels)
 
-            # compute inertia (sum of squared distances)
-            inertia = np.sum((X - newC[labels]) ** 2)
-
-            # check for convergence
-            if abs(old_inertia - inertia) < self.tol:
-                print(f"Converged at iteration {it+1} with inertia={inertia:.4f}")
+            # Check for convergence
+            if np.allclose(self.centroids, new_centroids, atol=1e-6):
                 break
 
-            old_inertia = inertia
-            C = newC
+            self.centroids = new_centroids
 
-        self.cluster_centers_ = C
         self.labels = labels
-        self.inertia_ = inertia
         return self
 
+    def _assign_labels(self, X):
+        # Compute distances from each data point to centroids
+        distances = np.linalg.norm(X[:, np.newaxis] - self.centroids, axis=2)
+        # Assign labels based on the nearest centroid
+        return np.argmin(distances, axis=1)
 
-# feature extraction
-def build_skill_matrix(postings_csv, lexicon_csv, company=None, title=None, max_phrase_len=3, min_skill_df=10):
-    df = pd.read_csv(postings_csv, low_memory=False)
-    df = standardize_posting_id(df)
-    if company:
-        df = df[df.get("company_name", pd.Series(dtype=object)) == company]
-    if title:
-        titles = df.get("title", pd.Series(dtype=object)).astype(str)
-        df = df[titles.str.contains(title, case=False, na=False, regex=False)]
-    if df.empty:
-        return np.zeros((0,0)), [], df
-
-    desc = df["description"].fillna("").astype(str).drop_duplicates().reset_index(drop=True)
-    lex_buckets = build_lexicon(lexicon_csv, min_len=1, max_len=max_phrase_len)
-    df_counter = Counter()
-    doc_skills = []
-    for d in desc:
-        found = extract_skills(d, lex_buckets)
-        doc_skills.append(found)
-        for s in found:
-            df_counter[s] += 1
-
-    keep = sorted([s for s,c in df_counter.items() if c >= min_skill_df])
-    if not keep:
-        return np.zeros((0,0)), [], df
-    idx = {s:i for i,s in enumerate(keep)}
-    X = np.zeros((len(doc_skills), len(keep)), dtype=np.uint8)
-    for r, sks in enumerate(doc_skills):
-        for s in sks:
-            if s in idx:
-                X[r, idx[s]] = 1
-    df_aligned = df.iloc[:len(X)].copy().reset_index(drop=True)
-    return X, keep, df_aligned
-
-
-def zscore(X):
-    mu = X.mean(axis=0)
-    sigma = X.std(axis=0, ddof=0)
-    sigma[sigma == 0] = 1
-    return (X - mu) / sigma, mu, sigma
-
-
-def get_cluster_skill_labels(X, labels, vocab, top_n=3):
-    cluster_labels = {}
-    X = np.asarray(X)
-    for k in sorted(set(labels)):
-        mask = labels == k
-        if not np.any(mask):
-            cluster_labels[k] = "N/A"
-            continue
-        skill_freq = X[mask].sum(axis=0)
-        top_idx = np.argsort(skill_freq)[::-1][:top_n]
-        top_skills = [vocab[i] for i in top_idx if skill_freq[i] > 0]
-        cluster_labels[k] = ", ".join(top_skills[:top_n]) or "N/A"
-    return cluster_labels
-
-
-# visualization
+    def _update_centroids(self, X, labels):
+        new_centroids = np.array([
+            X[labels == i].mean(axis=0) if np.any(labels == i) else self.centroids[i]
+            for i in range(self.n_clusters)
+        ])
+        return new_centroids
+    
+# plotters
 def plot_3d_clusters(X3, labels, centers3, out_path, title, cluster_names=None):
     fig = plt.figure(figsize=(9,7))
     ax = fig.add_subplot(111, projection='3d')
@@ -228,8 +155,6 @@ def plot_contour_regions(X2, labels, centers2, out_path, title, cluster_names=No
     fig.savefig(out_path, dpi=200)
     return out_path
 
-
-# main
 if __name__ == "__main__":
     parser = build_arg_parser()
     args, _ = parser.parse_known_args()
@@ -252,8 +177,8 @@ if __name__ == "__main__":
     os.makedirs(args.plot_out_dir, exist_ok=True)
 
     for k in args.k_values:
-        km = KMeansScratch(k, args.max_iter, args.tol, args.random_state).fit(Xn)
-        labels, centers = km.labels, km.cluster_centers_
+        km = KMeans(n_clusters=k, max_iters=args.max_iter).fit(Xn)
+        labels, centers = km.labels, km.centroids
         centers2 = (centers - mu3) @ comps2
         centers3 = (centers - mu3) @ comps3
 
@@ -265,8 +190,16 @@ if __name__ == "__main__":
         out2d = os.path.join(args.plot_out_dir, f"{args.plot_prefix}_k{k}_contour.png")
         plot_contour_regions(X2, labels, centers2, out2d, f"Cluster Regions (k={k}) — PCA Contour", cluster_names)
 
+        # Silhouette score
+        if len(np.unique(labels)) > 1:
+            sil = silhouette_score(Xn, labels)
+            print(f"Silhouette Score (k={k}): {sil:.4f}")
+        else:
+            print(f"Silhouette Score (k={k}): N/A (only one cluster)")
+
     for k in args.k_values:
         print(f" - {args.plot_out_dir}/{args.plot_prefix}_k{k}_3d.png")
         print(f" - {args.plot_out_dir}/{args.plot_prefix}_k{k}_contour.png")
+
     if args.show_plots:
         plt.show()

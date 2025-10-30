@@ -1,6 +1,6 @@
 filter:
   company_filter: null
-  title_filter: "Software"
+  title_filter: null
 
 input:
   job_postings_csv_in: "datasets/archive/postings.csv"
