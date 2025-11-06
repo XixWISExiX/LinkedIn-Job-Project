@@ -1,5 +1,5 @@
 '''
-python Regression-Task/associative_algo.py --config=Regression-Task/regression_args.yml
+python Regression-Task/regression-algo.py --config=Regression-Task/regression_args.yml
 '''
 # Regression algorithm for salary
 
