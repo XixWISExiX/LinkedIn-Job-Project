@@ -254,6 +254,8 @@ def yaml_keys_to_arg_names(flat_cfg: Dict[str, Any]) -> Dict[str, Any]:
         out[key] = v
     return out
 
+def tester():
+    return "test"
 
 if __name__ == "__main__":
     parser = build_arg_parser()
