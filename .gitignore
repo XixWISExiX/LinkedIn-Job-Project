@@ -1,2 +1,4 @@
-backend/datasets/**
-!backend/datasets/.gitkeep
+datasets/**
+!datasets/.gitkeep
+
+__pycache__
