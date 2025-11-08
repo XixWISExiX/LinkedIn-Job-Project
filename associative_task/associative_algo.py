@@ -1,5 +1,5 @@
 '''
-python Associative-Task/associative_algo.py --config=Associative-Task/associative_args.yml
+python associative_task/associative_algo.py --config=associative_task/associative_args.yml
 '''
 # Association Rule Mining for Pairs
 
@@ -66,6 +66,8 @@ def mine_pairs_from_scratch(
             if s not in skill_to_posts:
                 skill_to_posts[s] = set()
             skill_to_posts[s].add(pid)
+    print(skill_to_posts)
+    e=1/0
 
     # prune rare skills
     keep = {s for s,c in df_counter.items() if c >= min_skill_df} # Filter the skills with the minimum skill amount

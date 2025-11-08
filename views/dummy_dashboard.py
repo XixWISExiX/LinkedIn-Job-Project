@@ -48,6 +48,16 @@ if st.button('Say Hello!'):
 option = st.selectbox('Choose an option:', [1,2,3])
 st.write(f'You select: {option}')
 
+multiselect_options = st.multiselect(
+    "Numbers",                      # label
+    options=[1,2,3,4,5],                  # list/Index of choices
+    key="demo",         # bind to session state
+    help="Pick one or more numbers",
+    placeholder="Start typing…",
+    max_selections=20,             # optional
+)
+st.write(f'You selected: {multiselect_options}')
+
 st.header('Displaying Data and Charts')
 
 data = {
