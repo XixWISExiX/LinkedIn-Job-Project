@@ -1,4 +1,13 @@
+# Before you run the application
+
+Before you run the application you need to create the pre-processed data by running the below command.
+
+```bash
+python pre_processing.py
+```
+
 # How to run the application
+
 ```bash
 streamlit run dashboard.py 
 ```

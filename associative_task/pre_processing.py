@@ -1,5 +1,5 @@
 '''
-python Associative-Task/pre_processing.py
+python associative_task/pre_processing.py
 '''
 # https://www.geeksforgeeks.org/machine-learning/association-rule/
 # Question to answer: 
