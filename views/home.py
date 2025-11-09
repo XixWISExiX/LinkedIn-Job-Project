@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.express as px
 
 
 # ------- EDA ---------
@@ -9,12 +10,12 @@ import matplotlib.pyplot as plt
 st.title('Exporatory Data Analysis (EDA) Dashboard')
 
 bin_count = st.slider('Select the number of bins', min_value=1, max_value=20, value=3)
-tab1, tab2, tab3 = st.tabs(['Tabular Job Data', 'Bar Plot', 'Box Plots'])
+tab1, tab2, tab3 = st.tabs(['Tabular Job Postings Data', 'Bar Plot', 'Box Plots'])
 
 
 
 with tab1:
-    st.subheader('Filtered Job DataFrame')
+    st.subheader('Filtered Job Postings Table')
     st.write(f'Number of Entries: {len(st.session_state.job_market_filtered_df)}')
     #st.write(st.session_state.job_market_filtered_df)
     st.write(st.session_state.job_market_filtered_df[['posting_id', 'company_id', 'company_name', 'title', 'formatted_experience_level', 'description', 'normalized_salary', 'max_salary', 'med_salary', 'min_salary', 'location', 'zip_code', 'work_type', 'applies', 'listed_time', 'expiry', 'remote_allowed', 'application_type', 'job_posting_url']])
@@ -27,34 +28,49 @@ with tab2:
     option = st.selectbox('Choose Column:', options, key="tab2_selector")
 
     if option == 'normalized_salary':
-        binned = pd.cut(st.session_state.job_market_filtered_df[[option]].iloc[:,0], bins=bin_count)
-        counts = binned.value_counts(sort=False)
+        binned = pd.cut(st.session_state.job_market_filtered_df[option], bins=bin_count)
+        counts = binned.value_counts(sort=False)  # keep bin order
     elif option == 'skills':
         drop_list = set(st.session_state.job_market_filtered_df.columns[:31])
         skills_df = st.session_state.job_market_filtered_df.loc[:, ~st.session_state.job_market_filtered_df.columns.isin(drop_list)]
-        col_sums = skills_df.sum(axis=0, skipna=True)
-        counts = col_sums.nlargest(bin_count)
+        counts = skills_df.sum(axis=0, skipna=True).nlargest(bin_count)
     else:
         counts = (
             st.session_state.job_market_filtered_df[option]
-            .astype(str)                       # avoid issues with non-strings
+            .astype(str)
             .value_counts(dropna=False)
             .head(bin_count)
         )
 
-    # Make Plot
-    fig, ax = plt.subplots(figsize=(9, 5))
-    bars = ax.bar(counts.index.astype(str), counts.values)
-    ax.set_title(f"Top {len(counts)} values in '{option}'")
-    ax.set_xlabel(option)
-    ax.set_ylabel("Count")
-    ax.tick_params(axis="x", labelrotation=25)
-    plt.tight_layout()
-    labels = [f"{v:,}" for v in counts.values]
-    ax.bar_label(bars, labels=labels, padding=3, fontsize=9)
-    top = counts.max()
-    ax.set_ylim(0, top * 1.10)   # 20% extra space above tallest label
-    st.pyplot(fig, clear_figure=True)
+    # --- tidy DataFrame for Plotly, with nice labels ---
+    idx = counts.index
+    if pd.api.types.is_interval_dtype(idx):  # from pd.cut
+        labels = [f"{iv.left:,.0f}–{iv.right:,.0f}" for iv in idx]
+    else:
+        labels = [str(x) for x in idx]
+
+    df_bar = pd.DataFrame({"label": labels, "count": counts.values})
+
+    # Preserve current order exactly
+    category_order = list(df_bar["label"])
+
+    # --- Plotly bar ---
+    fig = px.bar(
+        df_bar, x="label", y="count", text="count",
+        labels={"label": option, "count": "Count"},
+    )
+
+    # Format numbers, put text above bars, rotate ticks, add headroom
+    top = df_bar["count"].max() if len(df_bar) else 0
+    fig.update_traces(texttemplate="%{y:,}", textposition="outside", cliponaxis=False)
+    fig.update_layout(
+        height=500, margin=dict(l=10, r=10, t=30, b=10),
+        xaxis_tickangle=25,
+        xaxis={"categoryorder": "array", "categoryarray": category_order},
+        yaxis_range=[0, top * 1.10 if top else 1],
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
 
 
@@ -63,45 +79,42 @@ with tab3:
     option = st.selectbox('Choose Column:', ['company_name', 'title', 'location', 'work_type', 'formatted_experience_level', 'skills'], key="tab3_selector")
 
     if option == 'skills':
-        skill_cols = set(st.session_state.job_market_filtered_df.columns[31:])
-        skill_cols.add('normalized_salary')
-        skills_df = st.session_state.job_market_filtered_df.loc[:, st.session_state.job_market_filtered_df.columns.isin(skill_cols)]
-        #st.write(skills_df['c++'])
-        skill_cols.remove('normalized_salary')
-        order = (skills_df[list(skill_cols)] > 0).sum().sort_values(ascending=False).head(bin_count).index
-        data_dict = {col: skills_df.loc[skills_df[col] > 0, "normalized_salary"].dropna().to_numpy(float) for col in order}
-        labels = list(order)
-        data   = [data_dict[c] for c in labels]
+        # choose skill columns and get top-N by frequency
+        skill_cols = list(st.session_state.job_market_filtered_df.columns[31:])
+        skills_df = st.session_state.job_market_filtered_df.loc[:, ['normalized_salary', *skill_cols]]
+        order = (skills_df[skill_cols] > 0).sum().sort_values(ascending=False).head(bin_count).index.tolist()
+
+        # build list of arrays and labels
+        arrays = [skills_df.loc[skills_df[c] > 0, 'normalized_salary'].dropna().to_numpy(float) for c in order]
+        labels = order
     else:
-        data = st.session_state.job_market_filtered_df[[option, 'normalized_salary']]
+        # non-skill categorical column
         data = st.session_state.job_market_filtered_df.dropna(subset=[option, 'normalized_salary'])
-        order = data[option].value_counts().index.tolist()
-        data = [data.loc[data[option] == c, 'normalized_salary'].to_numpy() for c in order][:bin_count]
-        labels = order[:bin_count]
-        
+        order = data[option].value_counts().head(bin_count).index.tolist()
+        arrays = [data.loc[data[option] == c, 'normalized_salary'].to_numpy(float) for c in order]
+        labels = order
 
-    # Make Plot
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.boxplot(data, labels=labels)
+    # ---- build tidy DataFrame for Plotly ----
+    # filter out empty groups to avoid shape errors
+    arrays, labels = zip(*[(a, l) for a, l in zip(arrays, labels) if len(a) > 0]) if arrays else ([], [])
+    if arrays:
+        lengths = [len(a) for a in arrays]
+        tidy = pd.DataFrame({
+            "label": np.repeat(labels, lengths),
+            "normalized_salary": np.concatenate(arrays)
+        })
+    else:
+        tidy = pd.DataFrame(columns=["label", "normalized_salary"])
 
-    xpos = np.arange(1, len(data) + 1)  # boxplot positions start at 1
-    point_handles = []
-    for i, vals in enumerate(data, start=1):
-        if len(vals) == 0:
-            continue
-        # jitter width: narrower when fewer categories
-        jitter = (np.random.rand(len(vals)) - 0.5) * 0.24
-        h = ax.scatter(
-            np.full_like(vals, i, dtype=float) + jitter,
-            vals,
-            s=14, alpha=0.6, zorder=3, edgecolors="none"
-        )
-        point_handles.append(h)
+    # ---- plot ----
+    fig = px.box(
+        tidy, x='label', y='normalized_salary',
+        points='all',
+        labels={"label": option, "normalized_salary": "Salary"},
+        #color_discrete_sequence=["#636EFA"],
+    )
+    fig.update_traces(jitter=0.24, pointpos=0.0, marker_size=6, marker_opacity=0.6, selector=dict(type="box"))
+    fig.update_layout(width=900, height=500, xaxis_tickangle=25, margin=dict(l=10, r=10, t=30, b=10))
 
-    ax.set_xlabel(option)
-    ax.set_ylabel("Salary")
-    ax.tick_params(axis="x", labelrotation=25)
-    plt.tight_layout()
-    st.pyplot(fig, clear_figure=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-# ---------------------
