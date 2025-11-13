@@ -33,23 +33,31 @@ tabs = st.tabs(
 
 
 with tabs[0]:
+    # set title of the tab.
     st.header("Regression Inputs")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4) # Set up 4 columns for each input.
 
+    # Job skill for column 1.
     with col1:
         skill = st.selectbox("Type of Skill", ["Python", "C++", "Java"])
 
+    # Company for column 2.
     with col2:
         company = st.selectbox("Company Name", ["Boeing", "Northrop Grumman", "Microsoft"])
 
+    # Job title for column 3.
     with col3:
         job_title = st.selectbox("Job Title", ["Manager", "Software Tester", "Quality Control"])
 
+    # Zip code for column 4.
     with col4:
         zip_code = st.number_input("Zip Code", 11111, 99999, 73019, step=1)
 
+with tabs[1]:
+    st.header("Job Data Scatterplot")
 
-
+with tabs[2]:
+    st.header("Regression Summary")
 
 
     
