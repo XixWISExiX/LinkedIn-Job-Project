@@ -23,6 +23,10 @@ st.title("Salary Predictor — Estimate Pay from Role, Company & Skills")
 #*Note:* This is an estimate from historical postings—actual compensation may vary.
 #""")
 
+# Get all skills
+skill_cols = set(st.session_state.job_market_filtered_df.columns[31:])
+skill_cols.add('normalized_salary')
+
 # page set up for regression
 st.set_page_config(page_title="Job Regression Dashboard", layout="wide")
 st.title("Salary Predictor — Salary Regression Explorer")
@@ -39,7 +43,7 @@ with tabs[0]:
 
     # Job skill for column 1.
     with col1:
-        skill = st.selectbox("Type of Skill", ["Python", "C++", "Java"])
+        skill = st.selectbox("Type of Skill", skill_cols)
 
     # Company for column 2.
     with col2:
