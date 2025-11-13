@@ -4,7 +4,6 @@ python Regression-Task/regression-algo.py --config=Regression-Task/regression_ar
 # Regression algorithm for salary
 
 import argparse
-import yaml
 import pandas as pd
 import numpy as np
 from typing import Any, Dict
@@ -56,9 +55,9 @@ def mean_sqaured_error(y_actual, y_predicted):
 
 '''
 def build_arg_parser() -> argparse.ArgumentParser:
-    '''
-    Creates what arguments to take in and use for the regression algorithm
-    '''
+    
+    #Creates what arguments to take in and use for the regression algorithm
+    
 
     p = argparse.ArgumentParser(description="Regression Parser",
                                 fromfile_prefix_chars='@')

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
-from regression_task.regression_algo import run_regression_algorithm
+#from regression_task.regression_algo import run_regression_algorithm
 
 st.title("Salary Predictor — Estimate Pay from Role, Company & Skills")
 
@@ -23,6 +23,33 @@ st.title("Salary Predictor — Estimate Pay from Role, Company & Skills")
 #*Note:* This is an estimate from historical postings—actual compensation may vary.
 #""")
 
-col_1, col_2, col_3 = st.columns([4, 4, 4], gap="small")  # ≈ 33% / 33% / 33%
+# page set up for regression
+st.set_page_config(page_title="Job Regression Dashboard", layout="wide")
+st.title("Salary Predictor — Salary Regression Explorer")
+
+tabs = st.tabs(
+    ["Input Parameters", "Scatter Plot", "Regression Summary"]
+)
 
 
+with tabs[0]:
+    st.header("Regression Inputs")
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        skill = st.selectbox("Type of Skill", ["Python", "C++", "Java"])
+
+    with col2:
+        company = st.selectbox("Company Name", ["Boeing", "Northrop Grumman", "Microsoft"])
+
+    with col3:
+        job_title = st.selectbox("Job Title", ["Manager", "Software Tester", "Quality Control"])
+
+    with col4:
+        zip_code = st.number_input("Zip Code", 11111, 99999, 73019, step=1)
+
+
+
+
+
+    
