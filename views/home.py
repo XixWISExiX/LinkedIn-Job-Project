@@ -7,15 +7,44 @@ import plotly.express as px
 
 # ------- EDA ---------
 
-st.title('Exporatory Data Analysis (EDA) Dashboard')
 
-bin_count = st.slider('Select the number of bins', min_value=1, max_value=20, value=3)
-tab1, tab2, tab3 = st.tabs(['Tabular Job Postings Data', 'Bar Plot', 'Box Plots'])
+
+st.title('Job Exploration Dashboard')
+st.caption(
+    "Interactively explore filtered job postings: "
+    "view the table, see how common different categories are, "
+    "and compare salary distributions."
+)
+
+with st.expander("ℹ️ How to use this page", expanded=False):
+    st.markdown(
+        """
+        **Tabs:**
+        - **Tabular Job Postings Data** – see the filtered job postings table.
+        - **Number of Job Postings Bar Plot** – count how many postings fall into each category.
+        - **Salary Box Plots** – compare salary distributions across categories or skills.
+
+        **Tips:**
+        - Use the **bin slider** to control how many top categories/skills are shown.
+        - Try switching between **company, title, location, experience level, work type, skills**, etc.
+        """
+    )
+
+
+
+bin_count = st.slider('Number of top categories / skills to show', min_value=1, max_value=20, value=3, help="Controls how many top items (companies, titles, locations, skills, etc.) are shown in the plots below.")
+
+
+tab1, tab2, tab3 = st.tabs(['📋 Tabular Job Postings Data', '📊 Number of Job Postings Bar Plot', '💵 Salary Box Plots'])
 
 
 
 with tab1:
     st.subheader('Filtered Job Postings Table')
+    st.caption(
+            "This table shows the current filtered view of the job postings. "
+            "Use the filters on other pages to change which rows appear here."
+        )
     st.write(f'Number of Entries: {len(st.session_state.job_market_filtered_df)}')
     #st.write(st.session_state.job_market_filtered_df)
     st.write(st.session_state.job_market_filtered_df[['posting_id', 'company_id', 'company_name', 'title', 'formatted_experience_level', 'description', 'normalized_salary', 'max_salary', 'med_salary', 'min_salary', 'location', 'zip_code', 'work_type', 'applies', 'listed_time', 'expiry', 'remote_allowed', 'application_type', 'job_posting_url']])
@@ -23,9 +52,16 @@ with tab1:
 
 
 with tab2:
-    st.subheader('Column Item Frequencies')
+    st.subheader('Number of Job Postings by Category')
+    st.caption(
+            "Select how you want to group the postings (e.g., by company, title, location, "
+            "experience level, or skills). The bar chart shows how many postings fall into "
+            "each of the top categories."
+        )
     options = ['company_name', 'title', 'location', 'work_type', 'formatted_experience_level', 'normalized_salary', 'skills']
-    option = st.selectbox('Choose Column:', options, key="tab2_selector")
+    option = st.selectbox('Group jobs by...', options, key="tab2_selector", help=(
+        "Choose which column to group by.\n"
+        "For example, 'Company' will show the top companies by number of postings."))
 
     if option == 'normalized_salary':
         binned = pd.cut(st.session_state.job_market_filtered_df[option], bins=bin_count)
@@ -75,8 +111,13 @@ with tab2:
 
 
 with tab3:
-    st.subheader('Column Item Salary Distributions')
-    option = st.selectbox('Choose Column:', ['company_name', 'title', 'location', 'work_type', 'formatted_experience_level', 'skills'], key="tab3_selector")
+    st.subheader('Salary Distributions by Category')
+    st.caption(
+            "Compare salary distributions across different categories or skills. "
+            "Each box shows the spread of normalized salaries for postings in that group."
+        )
+
+    option = st.selectbox('Group salary by...', ['company_name', 'title', 'location', 'work_type', 'formatted_experience_level', 'skills'], key="tab3_selector", help='Choose which column to use as groups for the salary box plots.')
 
     if option == 'skills':
         # choose skill columns and get top-N by frequency
