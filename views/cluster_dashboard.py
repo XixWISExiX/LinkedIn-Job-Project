@@ -32,7 +32,7 @@ with tabs[0]:
     with col1:
         num_clusters = st.number_input("Number of Clusters (k)", 2, 20, 5, step=1)
     with col2:
-        num_pca_components = st.number_input("Number of PCA Components", 3, 10, 3)
+        num_pca_components = st.number_input("Number of PCA Components", 3, 50, 3)
     with col3:
         num_iterations = st.number_input("Number of Iterations", 10, 1000, 100, step=10)
     col4, col5 = st.columns(2)
@@ -54,7 +54,6 @@ with tabs[0]:
 
 # PCA
 Xpca, comps, mu = pca_transform(X, n_components=num_pca_components)
-Xpca, comps, mu = pca_transform(X, n_components=num_pca_components)
 
 # pca data for table
 eigenvalues = np.var(Xpca, axis=0)
@@ -75,9 +74,9 @@ km = KMeansScratch(
     n_clusters=num_clusters,
     max_iters=num_iterations,
     distance=distance_function 
-).fit(X)
+).fit(Xpca)
 labels, centroids = km.labels, km.centroids
-centroids_pca = (centroids - mu) @ comps[:, :num_pca_components]
+centroids_pca = centroids
 pca_labels = [f"PC{i+1}" for i in range(num_pca_components)]
 
 # salary summary
