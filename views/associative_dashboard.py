@@ -9,18 +9,29 @@ from associative_task.associative_algo import run_association_rule_mining
 
 st.title("Skill Bundles — What Skills Go Together")
 
-#st.caption("Discover frequently co-occurring skills across job postings to inform learning paths, resume bundling, and course planning.")
-#st.markdown("""
-#**What this does**
-#- Mines association rules between skills and roles (support, confidence, lift, interest).
-#- Surfaces common bundles and rare-but-high-lift combos.
-#- Lets you filter by company, role, location, and date range.
-#
-#**Great for**
-#- Finding complementary skills to add.
-#- Spotting company- or role-specific bundles.
-#- Prioritizing high-impact upskilling.
-#""")
+st.caption(
+    "Mine association rules between skills to discover which skills frequently appear together "
+    "in job postings. Use this to inform upskilling, resume bundling, and course planning."
+)
+
+with st.expander("ℹ️ What is this page showing?", expanded=False):
+    st.markdown(
+        """
+        This page runs **association rule mining** over the skill columns in your filtered job postings.
+
+        **You can:**
+        - Control the **minimum support** (how common a pattern must be).
+        - Limit the **maximum size** of each rule (how many skills on each side).
+        - Restrict to the **top-K** rules sorted by support, confidence, or lift.
+
+        **Tabs:**
+        - **Association Rules Table** – view the raw rules (antecedent → consequent) with metrics.
+        - **Heatmap Scatterplot** – visualize how rules trade off support and lift.
+        - **Heatmap (LHS vs RHS)** – see lift for top left-hand vs right-hand skill bundles as a matrix.
+        - **Help** – quick definitions and guidance.
+        """
+    )
+
 
 skill_cols = set(st.session_state.job_market_filtered_df.columns[31:])
 skill_cols.add('normalized_salary')
@@ -30,32 +41,60 @@ skills_df = st.session_state.job_market_filtered_df.loc[:, st.session_state.job_
 col_1, col_2, col_3 = st.columns([4, 4, 4], gap="small")  # ≈ 33% / 33% / 33%
 
 with col_1:
-    topk = st.number_input('Topk Filter', min_value=1, value=100, step=25)
+    topk = st.number_input('Top-K rules to keep', min_value=1, value=100, step=25, help="After mining, keep only the top K rules based on the chosen sort metric.")
 
 with col_2:
-    max_rule_size = st.number_input('Max Rule Size', min_value=1, value=3)
+    max_rule_size = st.number_input('Maximum rule size', min_value=1, value=3, help="Maximum number of skills allowed on each side of a rule (e.g., 3 allows up to triples like {Python, SQL, Spark} → {AWS}).")
 
 with col_3:
-    sort_col = st.selectbox('Sort by', ['support', 'confidence', 'lift'], index=1)
+    sort_col = st.selectbox('Sort rules by', ['support', 'confidence', 'lift'], index=1, help=(
+            "- **support**: prioritize more common patterns\n"
+            "- **confidence**: prioritize more reliable A→B rules\n"
+            "- **lift**: prioritize patterns that are unexpectedly strong"
+        ))
     #sort_col = st.selectbox('Filter', ['support', 'confidence', 'lift'], index=1)
 
 
-min_support = st.slider('Min Support Threashold', min_value=0.0, value=0.05, max_value=1.0, step=0.01, format="%.2f")
+min_support = st.slider('Minimum support threshold', min_value=0.0, value=0.05, max_value=1.0, step=0.01, format="%.2f", help="Rules must appear in at least this fraction of postings (e.g., 0.05 means 5% of all filtered job postings).")
 
 rules_df = run_association_rule_mining(skills_df, min_support, max_rule_size, topk, sort_col)
 
 def update_rules_df():
     rules_df = run_association_rule_mining(skills_df, min_support, max_rule_size, topk, sort_col)
 
-tab1, tab2, tab3, tab4 = st.tabs(['Association Rules Table', 'Heatmap Scatterplot', 'Heatmap (LHS vs RHS)', 'Help'])
+tab1, tab2, tab3, tab4 = st.tabs(["📋 Association Rules Table", "📈 Heatmap Scatterplot", "🧊 Heatmap (LHS vs RHS)", "❓ Help"])
 
 with tab1:
     st.subheader('Association Rules Table')
-    st.write('An association rule is denoted as (antecedent -> consequent)')
-    st.write(rules_df)
+    st.caption(
+            "Each row is a rule of the form **(antecedent → consequent)**, "
+            "with support, confidence, and lift."
+        )
+    #st.write(rules_df[['antecedent', 'consequent', 'support', 'confidence', 'lift', 'correlation']])
+
+# Pretty string representations for itemsets if needed
+    def format_itemset(x):
+        if isinstance(x, (list, tuple, set)):
+            return ", ".join(sorted(map(str, x)))
+        return str(x)
+
+    display_df = rules_df.copy()
+    display_df["antecedent"] = display_df["antecedent"].apply(format_itemset)
+    display_df["consequent"] = display_df["consequent"].apply(format_itemset)
+
+    st.dataframe(
+        display_df[['antecedent', 'consequent', 'support', 'confidence', 'lift', 'correlation']],
+        use_container_width=True,
+        hide_index=True,
+    )
 
 with tab2:
     st.subheader('Skill Association Heatmap Scatterplot')
+    st.caption(
+            "Each point is a rule (antecedent → consequent). "
+            "The x-axis is **support**, the y-axis is **lift**, "
+            "and the color encodes **confidence**."
+        )
 
     fig = px.scatter(
         rules_df, x="support", y="lift",
@@ -73,8 +112,12 @@ with tab2:
 
 
 with tab3:
-    st.subheader('Lift Heatmap (LHS vs RHS)')
-    grid_size = st.slider("Matrix Size", min_value=1, max_value=100, value=10, step=1)
+    st.subheader('Lift Heatmap (LHS vs RHS skill bundles)')
+    st.caption(
+            "Shows the **lift** between top left-hand-side (LHS) and right-hand-side (RHS) "
+            "skill bundles. Darker colors indicate stronger positive association."
+        )
+    grid_size = st.slider("Number of LHS/RHS bundles to show", min_value=1, max_value=100, value=10, step=1, help="Controls how many top LHS and RHS bundles (by best lift) appear in the matrix.")
 
     AGG = "max"           # how to combine duplicate (LHS,RHS): "max" or "mean"
     DROP_OVERLAP = True   # drop rules where LHS ∩ RHS ≠ ∅
@@ -153,6 +196,44 @@ with tab3:
         st.plotly_chart(fig, use_container_width=True)
 
 with tab4:
-    st.write('Support = P(A∩B). Fraction of transactions containing A and B together (0–1).')
-    st.write('Confidence = P(B|A) = support(A∩B)/support(A). Directional reliability of A→B.')
-    st.write('Lift = confidence(A→B)/P(B). >1 positive association; =1 independent; <1 negative.')
+    st.subheader("How to read these metrics")
+    st.markdown(
+        r"""
+**Support**
+
+$$
+\text{support}(A \rightarrow B) = P(A \cap B)
+$$
+- Interpretation: fraction of all job postings that contain **both** the skills in A and B.
+- Range: 0–1. Higher means the pattern is more common.
+
+**Confidence**
+
+$$
+\text{confidence}(A \rightarrow B) = P(B \mid A)
+= \frac{P(A \cap B)}{P(A)}
+$$
+
+- Interpretation: if a posting has skills A, how likely is it to also have skills B?
+- Directional: (A $\rightarrow$ B) and (B $\rightarrow$ A) can have different confidence.
+
+**Lift**
+
+$$
+\text{lift}(A \rightarrow B)
+= \frac{\text{confidence}(A \rightarrow B)}{P(B)}
+$$
+
+- Interpretation: how much more likely B is when A is present, compared to B appearing at random.
+- Lift > 1: positive association (A and B appear together more than expected).
+- Lift = 1: independence (no special association).
+- Lift < 1: negative association (seeing A makes B less likely).
+
+
+---
+**Typical use-cases:**
+- Find **bundles of skills** to group on a resume (e.g., Python & SQL & Pandas).
+- See which skills tend to appear together for a given **job title or company** (via filters on the main page).
+- Prioritize **upskilling** toward skills that frequently appear with ones you already know.
+        """,
+    )
