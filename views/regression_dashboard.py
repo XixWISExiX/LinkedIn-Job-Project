@@ -6,7 +6,7 @@ import plotly.express as px
 import math
 #from regression_task.regression_algo import run_regression_algorithm
 
-st.title("Salary Predictor — Estimate Pay from Role, Company & Skills")
+st.title("Salary Predictor — Estimate Pay from Skills, Company, and location")
 
 # NOTE: This part doesn't need to be in the final dashboard, just to help your understanding.
 #st.caption("Predict a salary using job title, company, skills, and ZIP code, with confidence intervals and key drivers.")
