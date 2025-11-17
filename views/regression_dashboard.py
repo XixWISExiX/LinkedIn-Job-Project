@@ -32,21 +32,23 @@ skill_df = st.session_state.job_market_filtered_df.loc[:, st.session_state.job_m
 # Get dataframe of the entire dataset
 entire_df = st.session_state.job_market_filtered_df
 
-# Extract the following columns for the inputs.
+# Extract the following columns for the inputs and the X regression values.
 company_column = entire_df['company_name']
 job_location_column = entire_df['location']
+job_title_column = entire_df['title']
 
-
-# Extract the following for the regression
+# Extract the following for the Y regressions.
 normalized_salary_column = entire_df['normalized_salary']
 
-# Get a unique list of the company, and the location for the user input.
+# Get a unique list of the company, the title and the location for the user input.
 company_list = list(set(company_column.tolist()))
 job_location_list = list(set(job_location_column.tolist()))
+job_title_list = list(set(job_title_column.tolist()))
 
 # remove any floating point NaN's.
 company_list = [item for item in company_list if not (isinstance(item, float) and math.isnan(item))]
 job_location_list = [item for item in job_location_list if not (isinstance(item, float) and math.isnan(item))]
+job_title_list = [item for item in job_title_list if not (isinstance(item, float) and math.isnan(item))]
 
 
 # page set up for regression
@@ -72,10 +74,16 @@ with tabs[0]:
     with col2:
         company_input = st.selectbox("Company Name", sorted(company_list), help = "Click the dropdown box or type to find the company.")
 
-    # location for column 5.
+    # location for column 3.
     with col3:
         location_input = st.selectbox("Location", sorted(job_location_list), help = 
                                       "Click the dropdown box or type to find the job location.")
+        
+    # title for column 4.
+    with col3:
+        title_input = st.selectbox("Title", sorted(job_title_list), help = 
+                                      "Click the dropdown box or type to find the job title.")
+        
 
 with tabs[1]:
     st.header("Job Data Scatterplot")
