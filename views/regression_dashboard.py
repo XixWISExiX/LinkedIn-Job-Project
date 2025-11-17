@@ -36,6 +36,7 @@ entire_df = st.session_state.job_market_filtered_df
 company_column = entire_df['company_name']
 job_location_column = entire_df['location']
 
+
 # Extract the following for the regression
 normalized_salary_column = entire_df['normalized_salary']
 
@@ -60,7 +61,7 @@ tabs = st.tabs(
 with tabs[0]:
     # set title of the tab.
     st.header("Regression Inputs")
-    col1, col2, col3 = st.columns(3) # Set up 3 columns for each input.
+    col1, col2, col3, col4 = st.columns(4) # Set up 3 columns for each input.
 
     # Job skill for column 1.
     with col1:
