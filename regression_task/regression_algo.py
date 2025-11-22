@@ -3,53 +3,34 @@ python Regression-Task/regression-algo.py --config=Regression-Task/regression_ar
 '''
 # Regression algorithm for salary
 
-import argparse
-import pandas as pd
 import numpy as np
-from typing import Any, Dict
 from pre_processing import *
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import mean_squared_error, r2_score, explained_variance_score, max_error, confusion_matrix, f1_score
+from sklearn.metrics import r2_score
 
 
 def perform_regression(career_data, salary_data):
-
-    # --- Define features (X) and target (y) ---
-    X = career_data
-    y = salary_data
     
-    # --- Split into training and testing sets ---
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # --- Add a column of ones to X_train for the intercept term ---
-    X_b = np.c_[np.ones((X_train.shape[0], 1)), X_train]  # add bias column
     
     # --- Compute coefficients using the Normal Equation ---
     # β = (XᵀX)⁻¹ Xᵀy
-    beta = np.linalg.inv(X_b.T @ X_b) @ X_b.T @ y_train
+    beta = np.linalg.pinv(career_data.T @ career_data) @ (career_data.T @ salary_data)
 
     return beta
 
+
 def predict_salary(coefficient, x_values):
 
-    y_predictions = coefficient * x_values
+    y_predictions = x_values @ coefficient
     return y_predictions   
 
-def r2_score(y_actual, y_predicted):
+def perform_r2_score(y_actual, y_predicted):
 
-    r2_score = r2_score(y_actual, y_predicted)
-    return r2_score
+    r2 = r2_score(y_actual, y_predicted)
+    return r2
 
-def f1_score(y_actual, y_predicted):
+def mean_squared_error(y_actual, y_predicted):
 
-    f1_score = f1_score(y_actual, y_predicted)
-    return f1_score
-
-def mean_sqaured_error(y_actual, y_predicted):
-
-    mean_squared_error = mean_squared_error(y_actual, y_predicted)
-    return mean_squared_error
+    return np.mean((y_predicted - y_actual)**2)
 
 
 
