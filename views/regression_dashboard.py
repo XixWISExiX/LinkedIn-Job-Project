@@ -35,12 +35,8 @@ regression_columns.add('title')
 regression_columns.add('normalized_salary')
 regression_df = st.session_state.job_market_filtered_df.loc[:, st.session_state.job_market_filtered_df.columns.isin(regression_columns)]
 
-# Extract the following columns for the inputs.
+# Extract the the columns containing the skills for the skills input.
 skill_selection = set(st.session_state.job_market_filtered_df.columns[31:])
-company_column = regression_df['company_name']
-job_location_column = regression_df['location']
-job_title_column = regression_df['title']
-
 
 # Clean df by dropping rows that have empty values. Use this for the scatterplots also.
 regression_df_cleaned = regression_df.dropna()
@@ -55,8 +51,8 @@ y_values = regression_df_cleaned[['normalized_salary']]
 data_encoder = {}
 
 for column in x_values.columns:
-    x_values[column], catagories = pd.factorize(x_values[column]) #encode each column
-    data_encoder[column] = catagories  # Store the mappings
+    x_values[column], categories = pd.factorize(x_values[column]) #encode each column
+    data_encoder[column] = categories  # Store the mappings
 
 # Addd column for the intercept.
 X_matrix = np.c_[np.ones(len(x_values)), x_values.values]
@@ -78,51 +74,92 @@ mse = mean_squared_error(y_vector, y_pred)
 r2 = perform_r2_score(y_vector, y_pred)
 
 
-# Get a unique list of the company, the title and the location for the user input.
-company_list = list(set(company_column.tolist()))
-job_location_list = list(set(job_location_column.tolist()))
-job_title_list = list(set(job_title_column.tolist()))
-
-# remove any floating point NaN's.
-company_selection = [item for item in company_list if not (isinstance(item, float) and math.isnan(item))]
-job_location_selection = [item for item in job_location_list if not (isinstance(item, float) and math.isnan(item))]
-job_title_selection = [item for item in job_title_list if not (isinstance(item, float) and math.isnan(item))]
-
-
 # page set up for regression
 st.set_page_config(page_title="Job Regression Dashboard", layout="wide")
 st.title("Salary Predictor — Salary Regression Explorer")
 
 tabs = st.tabs(
-    ["Input Parameters", "Scatter Plots", "Regression Summary"]
+    ["Input Parameters to output the predicted salary", "Scatter Plots", "Regression Summary for the entire dataset"]
 )
 
 
 with tabs[0]:
     # set title of the tab.
-    st.header("Regression Inputs")
-    col1, col2, col3, col4 = st.columns(4) # Set up 3 columns for each input.
+    st.header("Regression Inputs and the processed output")
 
-    # Job skill for column 1.
-    with col1:
-        skill_inputs = st.multiselect("Type of Skill", sorted(skill_selection), help = "Pick one or more skills via dropdown or typing. " \
-        "Select the x in the red selection to delete a selection. Press the x next to the dropdown to delete the whole selection ")
+    skill_inputs = st.multiselect("Types of Skills", sorted(skill_selection), default = [], 
+                                  help = "Pick one or more skills via dropdown or typing. " \
+    "Select the x in the red selection to delete a selection. Press the x next to the dropdown to delete the whole selection ")
 
-    # Company for column 2.
-    with col2:
-        company_input = st.selectbox("Company Name", sorted(company_selection), help = "Click the dropdown box or type to find the company.")
+    if not skill_inputs:
+        st.warning("You need to select one or more skills in order to find a job and get the estimated salary.")
 
-    # location for column 3.
-    with col3:
-        location_input = st.selectbox("Location", sorted(job_location_selection), help = 
+    else:
+        filtered_df = regression_df[regression_df[skill_inputs].all(axis = 1)]
+        if (filtered_df.empty):
+            st.write("Sorry!! I don't have any jobs that match your skills!!")
+        else:
+            company_column = filtered_df['company_name']
+            job_location_column = filtered_df['location']
+            job_title_column = filtered_df['title']
+
+            # Get a unique list of the company, the title and the location for the user input.
+            company_list = list(set(company_column.tolist()))
+            job_location_list = list(set(job_location_column.tolist()))
+            job_title_list = list(set(job_title_column.tolist()))
+
+            # remove any floating point NaN's.
+            company_selection = [item for item in company_list if not (isinstance(item, float) and math.isnan(item))]
+            job_location_selection = [item for item in job_location_list if not (isinstance(item, float) and math.isnan(item))]
+            job_title_selection = [item for item in job_title_list if not (isinstance(item, float) and math.isnan(item))]
+
+            col1, col2, col3 = st.columns(3) # Set up 3 columns for the company, job title, and location after the user picks the skills.
+
+            # Company for column 2.
+            with col1:
+                company_input = st.selectbox("Company Name", sorted(company_selection), index = None, placeholder = "Select a company...",
+                                             help = "Click the dropdown box or type to find the company.")
+
+            # location for column 3.
+            with col2:
+                location_input = st.selectbox("Location", sorted(job_location_selection), 
+                                              index = None, placeholder = "Select a location...", help = 
                                       "Click the dropdown box or type to find the job location.")
         
-    # title for column 4.
-    with col4:
-        title_input = st.selectbox("Title", sorted(job_title_selection), help = 
+            # title for column 4.
+            with col3:
+                title_input = st.selectbox("Title", sorted(job_title_selection), index = None, 
+                                           placeholder = "Select a job title...", help = 
                                       "Click the dropdown box or type to find the job title.")
-        
-    
+       
+            if not company_input or not location_input or not title_input:
+                st.warning("Please select a company, a location, and a job title and we will give you an estimated salary.")
+
+            else:
+                new_data = {
+                    'company_name': company_input,
+                    'location': location_input,
+                    'title': title_input
+                }
+
+                values_encoded = []
+
+                for column in ['company_name', 'location', 'title']:
+                    ctgories = data_encoder[column]
+                    if new_data[column] in ctgories:
+                        indx = np.where(ctgories == new_data[column])[0][0]
+                    else:
+                        indx = -1
+
+                    values_encoded.append(indx)
+
+                new_x = np.array([1] + values_encoded)
+
+                estimated_salary = predict_salary(beta, new_x)
+
+                st.write("Predicted normalized salary for these inputs:", round(float(estimated_salary), 2))
+
+
 
 with tabs[1]:
     st.header("Job Data Scatterplots")
