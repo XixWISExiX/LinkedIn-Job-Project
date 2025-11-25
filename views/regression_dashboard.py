@@ -89,15 +89,15 @@ with tabs[0]:
 
     skill_inputs = st.multiselect("Types of Skills", sorted(skill_selection), default = [], 
                                   help = "Pick one or more skills via dropdown or typing. " \
-    "Select the x in the red selection to delete a selection. Press the x next to the dropdown to delete the whole selection ")
+    "Select the x in the red selection to delete a selection. Press the x next to the dropdown to delete the whole selection")
 
     if not skill_inputs:
-        st.warning("You need to select one or more skills in order to find a job and get the estimated salary.")
+        st.warning("Please select one or more skills in order to find a job and get the estimated salary.")
 
     else:
         filtered_df = regression_df[regression_df[skill_inputs].all(axis = 1)]
         if (filtered_df.empty):
-            st.write("Sorry!! I don't have any jobs that match your skills!!")
+            st.error("Sorry!! I don't have any jobs that match your skills!!")
         else:
             company_column = filtered_df['company_name']
             job_location_column = filtered_df['location']
@@ -162,9 +162,84 @@ with tabs[0]:
 
 
 with tabs[1]:
-    st.header("Job Data Scatterplots")
+    st.header("Job Data Barplot with filtering options")
 
-    scatter_graph_df = regression_df
+    st.subheader("Filtering Options:")
+
+    # use the regression dataframe to perform the graph plotting
+    scatter_graph_df = regression_df_cleaned
+    
+    company_scatter_column = scatter_graph_df['company_name']
+    job_location_scatter_column = scatter_graph_df['location']
+    job_title_scatter_column = scatter_graph_df['title']
+
+    # Get a unique list of the company, the title and the location for the user input.
+    company_scatter_list = list(set(company_scatter_column.tolist()))
+    job_location_scatter_list = list(set(job_location_scatter_column.tolist()))
+    job_title_scatter_list = list(set(job_title_scatter_column.tolist()))
+
+    # remove any floating point NaN's.
+    company_scatter_selection = [item for item in company_scatter_list if not (isinstance(item, float) and math.isnan(item))]
+    job_location_scatter_selection = [item for item in job_location_scatter_list if not (isinstance(item, float) and math.isnan(item))]
+    job_title_scatter_selection = [item for item in job_title_scatter_list if not (isinstance(item, float) and math.isnan(item))]
+        
+    # Define columns
+    col_a, col_b, col_c = st.columns(3)
+
+    with col_a:
+        company_options = ['All'] + sorted(company_scatter_selection)
+        selected_company = st.selectbox("Select Company", company_options, help = "Click the dropdown box or type to filter the company.")
+
+    with col_b:
+        location_options = ['All'] + sorted(job_location_scatter_selection)
+        selected_location = st.selectbox("Select Location", location_options, 
+                                         help = "Click the dropdown box or type to filter the location.")
+
+    with col_c:
+        title_options = ['All'] + sorted(job_title_scatter_selection)
+        selected_title = st.selectbox("Select Title", title_options, help = "Click the dropdown box or type to filter the title.")
+
+
+    # apply filtering.
+    filtered_scatter_graph_df = scatter_graph_df
+    if selected_company != 'All':
+        filtered_scatter_graph_df = filtered_scatter_graph_df[filtered_scatter_graph_df['company_name'] == selected_company]
+    if selected_location != 'All':
+        filtered_scatter_graph_df = filtered_scatter_graph_df[filtered_scatter_graph_df['location'] == selected_location]
+    if selected_title != 'All':
+        filtered_scatter_graph_df = filtered_scatter_graph_df[filtered_scatter_graph_df['title'] == selected_title]
+
+    # 3. Display Dataframe
+    st.subheader("Filtered Data")
+    st.dataframe(filtered_scatter_graph_df, use_container_width=True)
+
+    if filtered_scatter_graph_df.empty:
+        st.error("Cannot generate barplotplot for the selected filters due to an empty dataset!!")
+
+    else:
+        st.subheader("Normalized Salary Distribution")
+
+        # Group data for plotting (e.g., average salary per job title)
+        # The grouping/visualization will depend on your specific analysis
+        plot_data = filtered_scatter_graph_df.groupby('title')['normalized_salary'].mean().sort_values()
+
+        # Create the Matplotlib figure and axes using the Object-Oriented API
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plot_data.plot(kind='barh', ax=ax, color='skyblue')
+
+        ax.set_title("Average Normalized Salary by Job Title")
+        ax.set_xlabel("Average Normalized Salary ($)")
+        ax.set_ylabel("Job Title")
+        ax.set_xlim(xmin=min(plot_data) * 0.9, xmax=max(plot_data) * 1.1)
+        
+        # Add value labels to the bars
+        for index, value in enumerate(plot_data):
+            ax.text(value, index, f'${value:,.0f}', va='center', ha='left')
+
+        # Display the plot in Streamlit using st.pyplot()
+        st.pyplot(fig)
+
+    st.header("Job Data Scatterplot of unfilterized entire dataset")
     
     scatter_graph_df["Company_name-Title-Location"] = scatter_graph_df.apply(lambda x: f'{x["company_name"]} {x["title"]} {x["location"]}', 
                                                                              axis = 1)
@@ -178,8 +253,8 @@ with tabs[1]:
                                                                        "Company Name, Title, and Location tuple."))
     
     st.altair_chart(chart, use_container_width = True)
-    
 
+    
 
 
 with tabs[2]:
