@@ -116,7 +116,8 @@ if st.sidebar.button('Run Filter'):
 
 
 
-nav = st.navigation([home, dummy, assoc, cluster, regression])
+#nav = st.navigation([home, dummy, assoc, cluster, regression])
+nav = st.navigation([home, assoc, cluster, regression])
 
 nav.run()
 
