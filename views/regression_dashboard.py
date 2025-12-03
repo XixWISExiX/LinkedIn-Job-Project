@@ -459,9 +459,29 @@ with tabs[3]:
         ax_top_k.tick_params(axis = 'x', rotation = 90)
         st.pyplot(fig_top_k)
 
-    # Call using the original dataframe.
+    # Call using the original dataframe. Call for top k companies, locations and title
     top_k_barplot(regression_df, "company_name", K)
     top_k_barplot(regression_df, "location", K)
     top_k_barplot(regression_df, "title", K)
 
-    st.warning("Top K job skills barplot will come soon.")
+    # Declare dictionary for each skill and the number of rows contains that skill.
+    skill_counts = {}
+
+    # Iterate through the skills column names and count the rows that have one for the value of that skill.
+    for skill in skill_selection:
+        if skill in regression_df.columns:
+            skill_counts[skill] = (regression_df[skill] == 1).sum()
+
+    # Sort values with the highest count at the top. Bring out the top k rows.
+    top_k_skills = pd.Series(skill_counts).sort_values(ascending = False).head(K)
+
+    # Make the barplot for the top k skills.
+    fig_top_k_skills, ax_top_k_skills = plt.subplots(figsize=(10, 6))
+    top_k_skills.plot(kind='bar', ax = ax_top_k_skills)
+    ax_top_k_skills.set_title(f"Top {K} Job Skills")
+    ax_top_k_skills.set_xlabel("Type of Skill")
+    ax_top_k_skills.set_ylabel("Count")
+    ax_top_k_skills.tick_params(axis = 'x', rotation = 90)
+    st.pyplot(fig_top_k_skills)
+
+
