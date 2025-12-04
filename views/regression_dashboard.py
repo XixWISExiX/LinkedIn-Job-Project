@@ -6,8 +6,6 @@ import math
 from regression_task.regression_algo import perform_regression, predict_salary, mean_squared_error, perform_r2_score
 import altair as alt
 
-st.title("Salary Predictor — Estimate Pay from Skills, Company, and location")
-
 # Get all skills and get the entire dataframe for all the skills and the required variables for regression.
 regression_columns = set(st.session_state.job_market_filtered_df.columns[31:])
 regression_columns.add('company_name')
@@ -26,10 +24,13 @@ regression_df_cleaned = regression_df.dropna()
 regression_df_cleaned = regression_df_cleaned.sort_values(by = 'normalized_salary')
 
 # Extract the x values for regression
+#x_values = regression_df_cleaned[["company_name", "location", "title"] + list(skill_selection)]
 x_values = regression_df_cleaned[["company_name", "location", "title"]]
 
+#st.write(x_values)
+
 # Extract the y calues for regression
-y_values = regression_df_cleaned[['normalized_salary']]
+y = regression_df_cleaned[['normalized_salary']]
 
 # intiialized and prepare the encoder for regression and predictions.
 data_encoder = {}
@@ -41,7 +42,7 @@ for column in x_values.columns:
 # Addd column for the intercept.
 X_matrix = np.c_[np.ones(len(x_values)), x_values.values]
 
-y_vector = y_values.values.reshape(-1, 1)
+y_vector = y.values.reshape(-1, 1)
 
 
 # Calculate the regression slops using the perform_regression from the regression_algo.py
