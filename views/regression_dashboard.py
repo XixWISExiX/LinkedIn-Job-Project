@@ -10,16 +10,18 @@ from sklearn.metrics import r2_score, mean_squared_error
 import plotly.express as px
 import plotly.graph_objects as go
 
-# 1) TODO make K-Folds input
-# 2) TODO make explaination, explain model creation with features and folding, etc.
+
+random_seed = 42
 
 skill_selection = set(st.session_state.job_market_filtered_df.columns[31:])
 regression_columns = set(st.session_state.job_market_filtered_df.columns[31:])
 regression_columns.update(['company_name', 'location', 'title', 'normalized_salary'])
 regression_df = st.session_state.job_market_filtered_df.loc[:, st.session_state.job_market_filtered_df.columns.isin(regression_columns)]
 
+max_sample = regression_df.shape[0]
 
-def train_regression_model(regression_df, skill_inputs, company_input, location_input, title_input):
+
+def train_regression_model(regression_df, k_folds, skill_inputs, company_input, location_input, title_input):
     df = regression_df.dropna().sort_values(by="normalized_salary").copy()
 
     # Figure out which categorical features we can actually use
@@ -87,12 +89,15 @@ def train_regression_model(regression_df, skill_inputs, company_input, location_
     X_matrix = np.c_[np.ones((len(x_values), 1)), x_values.to_numpy(dtype=float)]
     y_vector = y.values.reshape(-1, 1)
 
-    # ----- 1) SPLIT FOR EVALUATION -----
-    #X_train, X_test, y_train, y_test = train_test_split(
-    #    X_matrix, y_vector, test_size=0.2, shuffle=True
-    #)
+    if len(regression_df) < k_folds:
+        st.warning(
+            f"Not enough samples ({regression_df.shape[0]}) for {k_folds}-fold CV. "
+            "Lower K or increase Max Samples."
+        )
+        st.stop()
 
-    kf = KFold(n_splits=5, shuffle=True)
+    # ----- 1) SPLIT FOR EVALUATION -----
+    kf = KFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
     r2_scores = []
     mse_scores = []
 
@@ -111,7 +116,7 @@ def train_regression_model(regression_df, skill_inputs, company_input, location_
     #float(np.std(r2_scores)),
     #float(np.std(mse_scores)),
 
-# Fit on train only for evaluation metrics
+    # Fit on train only for evaluation metrics
     beta_split = perform_regression(X_train, y_train)
     y_test_pred = predict_salary(beta_split, X_test)
 
@@ -188,9 +193,55 @@ def build_feature_vector(company_input, location_input, title_input,
 st.set_page_config(page_title="Job Regression Dashboard", layout="wide")
 st.title("Salary Predictor — Salary Regression Explorer")
 
+st.caption(
+    "Estimate normalized salary from job attributes and skill signals. "
+    "This page trains a lightweight linear regression model using your current filters "
+    "and evaluates stability with K-fold cross-validation. "
+    "For responsiveness, training may use a capped random sample of the filtered data."
+)
 
-skill_inputs = st.multiselect("Types of Skills", sorted(skill_selection), default = [], placeholder= "All skills", help = "Select one or more skills to filter via dropdown or typing. Select the x in the red selection to delete a filter. Press the x next to the dropdown to delete all filters.")
+with st.expander("ℹ️ What is this page showing?", expanded=False):
+    st.markdown(
+        """
+        This page runs a **linear regression** over your filtered job postings to estimate **normalized salary**.
 
+        **You can:**
+        - Select **skills** and optionally **company, location, and title** inputs.
+        - Control the **number of K-folds** used for evaluation.
+        - View how reliable the model is via **R², MSE, and their standard deviations**.
+        - Control the **maximum training sample size** for faster live modeling.
+
+        **How the model is built:**
+        - We build features from the inputs you provide.
+        - Categorical fields (company/location/title) are **one-hot encoded**.
+        - Skills are treated as binary indicators.
+        - The model is evaluated with **K-fold cross-validation** and then refit on all data
+          to produce the final coefficients used for prediction.
+
+        **Tabs:**
+        - **Regression Model Metrics** – quick reliability summary with R²/MSE.
+        - **Regression Parity Plot** – predicted vs actual to spot bias/variance issues.
+        - **Top-K Model Features** – the strongest coefficients in the current model.
+        - **Help** – definitions and interpretation tips.
+
+        **Notable Information:**
+        - To keep the dashboard responsive, training is capped by **Max Samples** and uses a fixed random seed.
+        - K-fold splitting also uses a fixed seed for reproducible metrics during demos.
+        """
+    )
+
+
+
+top_col1, top_col2, top_col3  = st.columns([8, 2, 2], gap="small")
+
+with top_col1:
+    skill_inputs = st.multiselect("Types of Skills", sorted(skill_selection), default = [], placeholder= "All skills", help = "Select one or more skills to filter via dropdown or typing. Select the x in the red selection to delete a filter. Press the x next to the dropdown to delete all filters.")
+
+with top_col2:
+    k_folds = st.number_input('K-Folds', min_value=2, value=3, step=1, max_value=30, help="Number of cross-validation folds used to estimate model reliability. Higher K gives a more thorough estimate but can be slower. We use a fixed random seed for reproducible results in the dashboard.")
+
+with top_col3:
+    num_samples = st.number_input('Max Samples to Train Model', min_value=5, value=min(100, max_sample), step=(((max_sample//40 + 25) // 50) * 50), max_value=max_sample, help="Limits how many rows are used to train the local regression model for responsiveness. Smaller sample sizes run faster but can make R²/MSE noisier and less reliable. Larger sample sizes are slower but usually provide more stable and representative results. If the filtered dataset is larger than this value, a random sample is used.")
 
 # Get all the comanies, locations, and titles for user inputs.
 company_column = st.session_state.job_market_filtered_df['company_name']
@@ -219,9 +270,12 @@ with col3:
     title_input = st.selectbox("Title", sorted(job_title_selection), index = None, placeholder = "Select a job title...", help = "Click the dropdown box or type to find the job title.")
 
 
+if regression_df.shape[0] > num_samples:
+    regression_df = regression_df.sample(n=num_samples, random_state=random_seed)
 
-model = train_regression_model(regression_df, skill_inputs, company_input, location_input, title_input)
+model = train_regression_model(regression_df, k_folds, skill_inputs, company_input, location_input, title_input)
 
+#st.write(regression_df.shape)
 
 
 if skill_inputs or company_input or location_input or title_input:
@@ -244,12 +298,19 @@ if skill_inputs or company_input or location_input or title_input:
     #### TABS ####
 
     tabs = st.tabs(
-        ["Regression Model Metrics", 
-        "Regression Parity Plot", "Top-K Model Features"]
+        ["📊 Regression Model Metrics",
+        "📈 Regression Parity Plot",
+        "🧠 Top-K Model Features",
+        "❓ Help"]
     )
+
 
     with tabs[0]:
         st.header("Model Metrics")
+        st.caption(
+            "Cross-validated performance summary for the current feature set. "
+            "R² and MSE are reported as mean ± variation across K folds."
+        )
 
         m1, m2, m3, m4, m5 = st.columns([2, 2, 2, 2, 4], gap="small")
 
@@ -287,6 +348,10 @@ if skill_inputs or company_input or location_input or title_input:
     # Tab for the regression summary of entire dataset.
     with tabs[1]:
         st.header("Regression Parity Plot")
+        st.caption(
+            "Compares predicted vs actual normalized salaries. "
+            "Points close to the dashed y=x line indicate better calibration."
+        )
 
         y_true = model["y_vector"].flatten()
         y_pred = model["y_pred"].flatten()
@@ -330,6 +395,10 @@ if skill_inputs or company_input or location_input or title_input:
 
     with tabs[2]:
         st.header("Regression Feature Importance Plot")
+        st.caption(
+            "Shows the most influential features by coefficient magnitude in the current linear model. "
+            "Positive values increase predicted salary; negative values decrease it."
+        )
 
         coef_df = pd.DataFrame({
                 "feature": model["feature_cols"],
@@ -367,3 +436,53 @@ if skill_inputs or company_input or location_input or title_input:
         )
 
         st.plotly_chart(fig_importance, use_container_width=True)
+
+
+    with tabs[3]:
+        st.subheader("How to read these metrics")
+        st.markdown(
+            r"""
+            **R² (Coefficient of Determination)**
+
+            - Measures how much variance in salary is explained by your selected features.
+            - Range: (-∞, 1]. Higher is better.
+            - A low R² here does not always mean your data is bad — it can mean the chosen features
+            are weak proxies for compensation.
+
+            **R² std (across folds)**
+
+            - Indicates how stable your R² is across different train/test splits.
+            - Lower is better (more reliable signal).
+
+            **MSE (Mean Squared Error)**
+
+            $$
+            \text{MSE} = \frac{1}{n} \sum_{i=1}^n (y_i - \hat{y}_i)^2
+            $$
+
+            - Penalizes large prediction errors more heavily.
+            - Useful for comparing models trained with the same target scaling.
+
+            **MSE std (across folds)**
+
+            - Measures how sensitive your error is to the data split.
+            - High values often suggest overfitting or sparse/high-cardinality features.
+
+            **Parity Plot**
+
+            - Each point compares an actual salary to your model’s prediction.
+            - The dashed line is the ideal **y = x** line.
+            - Systematic curvature or wide scatter suggests missing features or non-linear effects.
+
+            **Coefficients**
+
+            - Positive coefficient ⇒ feature increases predicted salary.
+            - Negative coefficient ⇒ feature decreases predicted salary.
+            - For one-hot categories, coefficients reflect the effect relative to the omitted baseline.
+
+            ---
+            **Tip:**  
+            For the most stable results, compare feature sets using similar input scope
+            (e.g., “skills-only” vs “skills + title”) before drawing conclusions about model quality.
+            """
+        )

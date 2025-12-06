@@ -7,8 +7,6 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_har
 from clustering_task.clustering_algo import KMeansScratch, pca_transform
 from scipy.stats import ttest_ind
 from scipy.spatial.distance import pdist, squareform
-import pandas as pd
-import plotly.express as px
 
 
 # getting skills data
@@ -19,6 +17,9 @@ skills_df = st.session_state.job_market_filtered_df.loc[:, st.session_state.job_
 skills_df["company_name"] = st.session_state.job_market_filtered_df["company_name"]
 skills_df["title"] = st.session_state.job_market_filtered_df["title"]
 skills_df["posting_id"] = st.session_state.job_market_filtered_df["posting_id"]
+
+max_sample = skills_df.shape[0]
+
 
 # build X using only real skill columns
 feature_cols = [c for c in skills_df.columns if c not in ("company_name", "title", "posting_id", "normalized_salary")]
@@ -32,80 +33,73 @@ st.caption(
     "Use this to understand how skill sets group together across the job market."
 )
 
-with st.expander("What is this page showing?", expanded=False):
+with st.expander("ℹ️ What is this page showing?", expanded=False):
     st.markdown(
         """
-        This page performs **unsupervised clustering** on the skill columns of your filtered job postings,
-        using PCA for dimensionality reduction and K-Means for cluster formation.
+        This page runs **unsupervised clustering** on job postings using their **skill vectors**.
+
+        **Pipeline (high level):**
+        1. Skills → high-dimensional vectors (already one-hot).
+        2. **PCA** reduces dimensionality to preserve the most important variance.
+        3. **K-Means** groups similar skill profiles into clusters.
 
         **You can:**
-        - Choose the **number of clusters (k)** to create different granularities of job grouping.
-        - Select a **distance function** (Euclidean, Manhattan, Minkowski) for K-Means.
-        - Control the number of **PCA components** used to project job-skill vectors.
-        - Pick an **evaluation metric** (Silhouette, Davies–Bouldin, Calinski–Harabasz).
+        - Choose **k (clusters)** to control how granular the job groups are.
+        - Select a **distance metric** that influences how similarity is measured.
+        - Adjust **PCA components** to trade off interpretability vs information retention.
+        - Evaluate results with **Silhouette**, **Davies–Bouldin**, or **Calinski–Harabasz**.
 
         **Tabs:**
-        - **3D Cluster Map** – view clusters in 3D PCA space, with centroids and job skill hover labels.  
-        - **Similarity Matrix** – inspect pairwise PCA similarity between job postings as a heatmap.  
-        - **Evaluation** – cluster scores, PCA variance breakdown, centroid distances, and t-test results.  
-        - **Help** – formal definitions and interpretation ranges for all metrics.
+        - **3D Cluster Map** – visualize distinct skill neighborhoods in PCA space.
+        - **Similarity Matrix** – inspect pairwise similarity between postings.
+        - **Evaluation** – validate cluster quality + salary separation signals.
+        - **Help** – definitions and interpretation ranges.
         """
     )
 
-
-# inputs
-st.header("Input Parameters")
-
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    num_clusters = st.number_input(
-        "k",
-        2, 100, 5, step=1,
-        help="The number of clusters made by the K-Means algorithm."
-    )
+    num_clusters = st.number_input("k (clusters)", 2, 100, 5, 1, help=("Controls how many skill groups K-Means will form. Smaller k gives broader categories; larger k creates more specialized clusters. If k is too large, clusters may become tiny and less meaningful.")
+)
 
 with col2:
-    num_pca_components = st.number_input(
-        "PCA Components",
-        3, 50, 3,
-        help="Choose amount of PCA components. (More PCA components preserve more variance but result in less interpretability)."
-    )
+    num_pca_components = st.number_input("PCA components", 3, 50, 3, help="Number of principal components used before clustering. More components preserve more variance but reduce interpretability. 3–8 is usually a good balance for visualization.")
 
 with col3:
-    num_iterations = st.number_input(
-        "Number of Iterations",
-        10, 1000, 100, step=10,
-        help="The amount of iterations the K-Means algorithm will run, mostly for the purpose of refining centroids."
-    )
+    num_iterations = st.number_input("K-Means iterations", 10, 1000, 100, step=10, help="How long K-Means refines centroids. Higher values can help stability but increase runtime.")
 
-col4, col5 = st.columns(2)
 with col4:
-    distance_function = st.selectbox(
-        "Distance Function",
-        ["euclidean", "manhattan", "minkowski"],
-        help="The distance metric which is used to compare points to centroids."
+    num_samples = st.number_input(
+        "Max samples for clustering",
+        min_value=5,
+        max_value=max_sample,
+        value=min(500, max_sample),
+        step=(((max_sample//40 + 25) // 50) * 50),
+        help="Limits rows used for PCA/K-Means for responsiveness. "
+            "If the filtered set is larger, a random sample is used."
     )
 
-    minkowski_p = None
-    if distance_function == "minkowski":
-        minkowski_p = st.slider(
-            "Minkowski Power (p)",
-            min_value=3.0, max_value=5.0, value=3.0, step=0.1,
-            help="Exponent that determines sensitivity to larger differences."
-        )
+col5, col6, col7 = st.columns([4, 4, 4], gap="small")
 
 with col5:
-    evaluation_function = st.selectbox(
-        "Evaluation Function",
-        ["silhouette", "davies-bouldin", "calinski-harabasz"],
-        help="Determines which evaluation score to use of the K-Means output."
-    )
+    evaluation_function = st.selectbox("Evaluation Function", ["silhouette", "davies-bouldin", "calinski-harabasz"], help="Determines which evaluation score to use of the K-Means output.")
 
-st.markdown("---")
+with col6:
+    distance_function = st.selectbox("Distance Function", ["euclidean", "manhattan", "minkowski"], help="The distance metric which is used to compare points to centroids.")
+
+with col7:
+    if distance_function == "minkowski":
+        minkowski_p = st.slider("Minkowski Power (p)", min_value=3.0, max_value=5.0, value=3.0, step=0.1, help="Exponent that determines sensitivity to larger differences.")
+
+
+
+if skills_df.shape[0] > 200:
+    skills_df = skills_df.sample(n=200, random_state=42).reset_index(drop=True)
+    X = skills_df[feature_cols].to_numpy(float)
 
 
 # tab set up
-tabs = st.tabs(["3D Cluster Map", "Similarity Matrix", "Evaluation", "Help"])
+tabs = st.tabs(["🧭 3D Cluster Map", "🧊 Similarity Matrix", "📏 Evaluation", "❓ Help"])
 
 
 # KMeans algorithm
@@ -147,8 +141,8 @@ cost_summary = (
 
 # cluster map
 with tabs[0]:
-    st.header("Skill Clusters in PCA Feature Space")
-    st.caption("Jobs projected into 3D PCA space, colored based on the cluster they are apart of.")
+    st.subheader("Skill Clusters in PCA Space")
+    st.caption("Jobs projected into PCA space and colored by cluster. Centroids represent the 'average' skill profile for each group.")
 
     ix, iy, iz = 0, 1, 2
     ax_x, ax_y, ax_z = pca_labels[ix], pca_labels[iy], pca_labels[iz]
@@ -212,26 +206,53 @@ job_labels = [
     f"{skills_df.iloc[i]['company_name']} — {skills_df.iloc[i]['title']} — {skills_df.iloc[i]['posting_id']}"
     for i in range(X.shape[0])
 ]
-with tabs[1]:
-    # cosine similarity
-    cos_sim = 1 - squareform(pdist(Xpca, metric='euclidean'))
 
-    sim_df = pd.DataFrame(cos_sim, index=job_labels, columns=job_labels)
+with tabs[1]:
+    st.subheader("Pairwise Similarity Heatmap")
+    #st.caption("Distance-based similarity between postings in PCA space.")
+    st.caption("Similarity between postings in PCA space. Use the slider to limit the view for readability.")
+
+    ## cosine similarity
+    sim = 1 - squareform(pdist(Xpca, metric=distance_function))
+    #sim = 1 - squareform(pdist(Xpca, metric="euclidean"))
+
+    sim_df = pd.DataFrame(sim, index=job_labels, columns=job_labels)
+
+    # --- Slider to limit heatmap size for readability ---
+    N = len(job_labels)
+    max_show = min(100, N)  # keep this sane for UI performance
+    show_n = st.slider(
+        "Items to display",
+        min_value=10,
+        max_value=max_show,
+        value=min(25, max_show),
+        step=1,
+        help="Limits the heatmap size for readability and faster rendering."
+    )
+
+    # Deterministic subset so the view doesn't jump around each rerun
+    subset_idx = list(range(show_n))
+    labels_sub = [job_labels[i] for i in subset_idx]
+    sim_sub = sim[np.ix_(subset_idx, subset_idx)]
+    sim_df_sub = pd.DataFrame(sim_sub, index=labels_sub, columns=labels_sub)
 
     fig = px.imshow(
-        sim_df,
+        sim_df_sub,
         color_continuous_scale="Viridis",
         aspect="auto",
         labels=dict(color="Similarity")
     )
 
-    # make labels small
-    fig.update_xaxes(tickfont=dict(size=6))
-    fig.update_yaxes(tickfont=dict(size=6))
+
+    # --- Dynamic height based on items shown ---
+    base_height = 350
+    per_item = 22
+    max_height = 1200
+    dynamic_height = min(max_height, base_height + per_item * show_n)
 
     fig.update_layout(
-        height=800, 
-        margin=dict(l=10, r=10, t=30, b=10)
+        height=dynamic_height,
+        margin=dict(l=30, r=10, t=40, b=80)
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -239,55 +260,229 @@ with tabs[1]:
 
 # evaluation tab
 with tabs[2]:
-    st.header("Evaluation Metrics & Distances")
+    c1, c2 = st.columns([3, 1], gap="large", vertical_alignment="center")
+    with c1:
+        st.subheader("Cluster Quality & Salary Differences")
+        st.caption("Check cluster compactness/separation, PCA variance retention, and whether clusters show meaningful salary differences.")
 
-    # Evaluation score
-    if evaluation_function == "silhouette":
-        score = silhouette_score(X, labels)
-    elif evaluation_function == "davies-bouldin":
-        score = davies_bouldin_score(X, labels)
-    else:
-        score = calinski_harabasz_score(X, labels)
+    with c2:
+        # Evaluation score
+        if evaluation_function == "silhouette":
+            score = silhouette_score(X, labels)
+        elif evaluation_function == "davies-bouldin":
+            score = davies_bouldin_score(X, labels)
+        else:
+            score = calinski_harabasz_score(X, labels)
+        st.metric(label=f"{evaluation_function.title()} Score", value=round(score, 4))
 
-    st.metric(label=f"{evaluation_function.title()} Score", value=round(score, 4))
+    metric_tabs = st.tabs(["Cluster Sizes", "PCA Component Distribution", "Cluster Cost Summary", "T-Test"])
 
-    # Cluster size distribution
-    st.subheader("Cluster Sizes")
-    cluster_sizes = pd.Series(labels).value_counts().sort_index()
-    size_df = pd.DataFrame({"Cluster": cluster_sizes.index, "Size": cluster_sizes.values})
-    st.bar_chart(size_df.set_index("Cluster"))
-    
-    # PCA table
-    st.subheader("PCA Component Distribution")
-    st.dataframe(pca_table, width='stretch')
+    with metric_tabs[0]:
+        # Cluster size distribution
+        st.subheader("Cluster Sizes")
+        st.caption("Shows how many postings fall into each cluster. Very tiny clusters may indicate over-fragmentation (k too high).")
+        cluster_sizes = pd.Series(labels).value_counts().sort_index()
+        size_df = pd.DataFrame({"Cluster": cluster_sizes.index, "Size": cluster_sizes.values})
+        st.bar_chart(size_df.set_index("Cluster"))
 
-    # Salary summary
-    st.subheader("Cluster Cost Summary")
-    st.dataframe(cost_summary, width='stretch')
+    with metric_tabs[1]:
+        # PCA table
+        st.subheader("PCA Component Distribution")
+        st.caption("A scree-style view of variance captured by each principal component. If the first few PCs capture most variance, clustering in PCA space is more trustworthy.")
 
-    # t-test
-    st.subheader("t-Test")
+        # keep only the displayed components (or you can plot full if you have it)
+        plot_df = pca_table.copy()
 
-    D = np.linalg.norm(Xpca[:, None, :] - centroids_pca[:, :Xpca.shape[1]], axis=2)
-    all_distances = np.array([D[i, lbl] for i, lbl in enumerate(labels)])
+        # Bar: % variance
+        fig = go.Figure()
 
-    ttest_results = []
-    for c in range(num_clusters):
-        cluster_dists = all_distances[np.where(labels == c)]
-        rest_dists = all_distances[np.where(labels != c)]
+        fig.add_trace(go.Bar(
+            x=plot_df["Component"],
+            y=plot_df["% of Variance"],
+            name="% of Variance"
+        ))
 
-        t_stat, p_value = ttest_ind(cluster_dists, rest_dists, equal_var=False)
+        # Line: cumulative %
+        fig.add_trace(go.Scatter(
+            x=plot_df["Component"],
+            y=plot_df["Cumulative %"],
+            mode="lines+markers",
+            name="Cumulative %",
+            yaxis="y2"
+        ))
 
-        ttest_results.append({
-            "Cluster": c,
-            "Mean Distance": round(cluster_dists.mean(), 4),
-            "Rest Mean Distance": round(rest_dists.mean(), 4),
-            "t-statistic": round(t_stat, 4),
-            "p-value": round(p_value, 6)
-        })
+        fig.update_layout(
+            title="PCA Scree Plot with Cumulative Variance",
+            xaxis_title="Principal Components",
+            yaxis=dict(title="% of Variance"),
+            yaxis2=dict(
+                title="Cumulative %",
+                overlaying="y",
+                side="right",
+                range=[0, 100]
+            ),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            height=500,
+            margin=dict(l=40, r=40, t=60, b=40),
+        )
 
-    ttest_df = pd.DataFrame(ttest_results)
-    st.dataframe(ttest_df, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
+
+        with st.expander("Show PCA table"):
+            st.dataframe(pca_table, use_container_width=True)
+
+
+
+    with metric_tabs[2]:
+        # Salary summary
+        st.subheader("Cluster Cost Summary")
+        st.caption("Compares salary statistics by cluster. Large gaps in mean/median suggest clusters reflect economically distinct roles.")
+
+
+        cs = cost_summary.copy()
+        cols = {c.lower(): c for c in cs.columns}
+
+        cluster_col = cols.get("cluster")
+        mean_col = cols.get("mean") or cols.get("avg") or cols.get("average")
+        median_col = cols.get("median")
+        min_col = cols.get("min")
+        max_col = cols.get("max")
+
+        if not (cluster_col and mean_col):
+            st.info("Cost summary table format didn't match expected columns for plotting.")
+            st.dataframe(cost_summary, use_container_width=True)
+        else:
+            cs = cs.sort_values(mean_col)
+
+            fig = go.Figure()
+
+            # --- Mean bars ---
+            fig.add_trace(go.Bar(
+                x=cs[cluster_col],
+                y=cs[mean_col],
+                name="Mean"
+            ))
+
+            # --- Min/Max as error bars around mean (if available) ---
+            if min_col and max_col:
+                err_plus = (cs[max_col] - cs[mean_col]).clip(lower=0)
+                err_minus = (cs[mean_col] - cs[min_col]).clip(lower=0)
+
+                fig.update_traces(
+                    error_y=dict(
+                        type="data",
+                        symmetric=False,
+                        array=err_plus,
+                        arrayminus=err_minus
+                    )
+                )
+
+            # --- Median markers (if available) ---
+            if median_col:
+                fig.add_trace(go.Scatter(
+                    x=cs[cluster_col],
+                    y=cs[median_col],
+                    mode="markers",
+                    name="Median",
+                    marker=dict(size=10, symbol="diamond")
+                ))
+
+            fig.update_layout(
+                title="Cluster Salary Summary (Mean with Min/Max Range + Median)",
+                xaxis_title="Cluster",
+                yaxis_title="Normalized Salary",
+                barmode="overlay",
+                height=500,
+                margin=dict(l=40, r=20, t=60, b=40),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            with st.expander("Show cost summary table"):
+                st.dataframe(cost_summary, use_container_width=True)
+
+
+    with metric_tabs[3]:
+        st.subheader("Cluster Compactness Comparison (t-test)")
+        st.caption("Tests whether each cluster’s distance-to-centroid distribution differs from the rest of the dataset. Lower mean distance with a low p-value suggests a tighter, more distinct cluster.")
+
+        # distances from each point to each centroid
+        D = np.linalg.norm(Xpca[:, None, :] - centroids_pca[:, :Xpca.shape[1]], axis=2)
+
+        ttest_results = []
+        for c in range(num_clusters):
+            # distances of points in cluster c to centroid c
+            cluster_dists = D[labels == c, c]
+
+            # distances of points in other clusters to their own centroids
+            rest_idx = np.where(labels != c)[0]
+            rest_dists = D[rest_idx, labels[rest_idx]]
+
+            # guard against tiny clusters
+            if len(cluster_dists) < 2 or len(rest_dists) < 2:
+                ttest_results.append({
+                    "Cluster": c,
+                    "Mean Distance": np.nan,
+                    "Rest Mean Distance": np.nan,
+                    "t-statistic": np.nan,
+                    "p-value": np.nan
+                })
+                continue
+
+            t_stat, p_value = ttest_ind(cluster_dists, rest_dists, equal_var=False)
+
+            ttest_results.append({
+                "Cluster": c,
+                "Mean Distance": round(cluster_dists.mean(), 4),
+                "Rest Mean Distance": round(rest_dists.mean(), 4),
+                "t-statistic": round(t_stat, 4),
+                "p-value": round(p_value, 6)
+            })
+
+        ttest_df = pd.DataFrame(ttest_results)
+        st.dataframe(ttest_df, use_container_width=True)
+
+        # ---- Add a plot for interpretability ----
+        st.caption(
+            "Visual comparison of each cluster’s average distance-to-centroid "
+            "vs the rest of the dataset. Use p-values to judge whether differences "
+            "are likely meaningful."
+        )
+
+        plot_df = ttest_df.melt(
+            id_vars=["Cluster", "t-statistic", "p-value"],
+            value_vars=["Mean Distance", "Rest Mean Distance"],
+            var_name="Group",
+            value_name="Avg Distance"
+        )
+
+        fig_t = px.bar(
+            plot_df,
+            x="Cluster",
+            y="Avg Distance",
+            color="Group",
+            barmode="group",
+            hover_data={
+                "t-statistic": True,
+                "p-value": True,
+                "Avg Distance": ":.4f"
+            },
+            title="Cluster Compactness: Mean Distance vs Rest"
+        )
+
+        fig_t.update_layout(
+            xaxis_title="Cluster",
+            yaxis_title="Average Distance to Assigned Centroid",
+            height=450,
+            margin=dict(l=40, r=20, t=60, b=40),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+
+        st.plotly_chart(fig_t, use_container_width=True)
+
+
+
 
 # help section
 with tabs[3]:
@@ -375,7 +570,7 @@ Interpretation
 - \($p$ < 0.01\): highly distinct cluster  
 - \($p$ < 0.05\): statistically distinct cluster  
 - \(0.05 < $p$ < 0.15\): borderline separation  
-- \(0,15 > $p$\): weak or no meaningful separation  
+- \(0.15 > $p$\): weak or no meaningful separation  
 ---
 """
     )

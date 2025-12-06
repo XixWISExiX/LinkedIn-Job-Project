@@ -10,7 +10,6 @@ import time
 # NOTE: The one important session state.
 # st.session_state.job_market_filtered_df
 
-
 # -- Update DF Func ---
 def update_df():
     print('update')
@@ -20,7 +19,8 @@ def update_df():
     df = pd.read_csv(valid_csv, low_memory=False)
 
     # Only store df values for first run.
-    if st.session_state.job_market_filtered_df is None:
+    #if st.session_state.job_market_filtered_df is None:
+    if not st.session_state.get("_app_inited", False):
         st.session_state.multi_options['company_name'] = set(df['company_name'])
         st.session_state.multi_options['title'] = set(df['title'])
         st.session_state.multi_options['location'] = set(df['location'])
@@ -46,6 +46,9 @@ def update_df():
         st.session_state.reset_filters = True
         st.rerun()
 
+    # $2+ million salary is something which we won't take into account, outlier.
+    df = df[df["normalized_salary"] <= 2_000_000]
+
     # Only run this if the df is not empty
     st.session_state.job_market_filtered_df = df
 
@@ -55,11 +58,11 @@ def update_df():
 
 # ------- MAIN --------
 
-st.session_state.setdefault("filter_map", {'company_name':[], 'title':['Software Engineer'], 'location':[], 'work_type':[], 'formatted_experience_level':[], 'skills':[]})
+st.session_state.setdefault("filter_map", {'company_name':[], 'title':[], 'location':[], 'work_type':[], 'formatted_experience_level':[], 'skills':[]})
 
-st.session_state.setdefault("prev_filter_map", {'company_name':[], 'title':['Software Engineer'], 'location':[], 'work_type':[], 'formatted_experience_level':[], 'skills':[]})
+st.session_state.setdefault("prev_filter_map", {'company_name':[], 'title':[], 'location':[], 'work_type':[], 'formatted_experience_level':[], 'skills':[]})
 
-st.session_state.setdefault("multi_options", {'company_name':[], 'title':[''], 'location':[], 'work_type':[], 'formatted_experience_level':[], 'skills':[]})
+st.session_state.setdefault("multi_options", {'company_name':[], 'title':[], 'location':[], 'work_type':[], 'formatted_experience_level':[], 'skills':[]})
 
 st.session_state.setdefault("reset_filters", False)
 
@@ -78,7 +81,7 @@ st.session_state["_app_inited"] = True
 
 # Pages of the application
 home  = st.Page("views/home.py",                  title="Home (Job Exploration)", icon="🏠")
-dummy  = st.Page("views/dummy_dashboard.py",                  title="Dummy", icon="👤")
+#dummy  = st.Page("views/dummy_dashboard.py",                  title="Dummy", icon="👤")
 assoc = st.Page("views/associative_dashboard.py", title="Skill Bundles (Association Rules)", icon="🔗")
 cluster = st.Page("views/cluster_dashboard.py", title="Job Landscape (Clustering)", icon="🧩")
 regression = st.Page("views/regression_dashboard.py", title="Salary Predictor (Regression)", icon="📈")
@@ -108,7 +111,7 @@ st.sidebar.multiselect(
 )
 
 # Update the option in the map with the current text
-st.session_state.filter_map[filter_option] = st.session_state.get(ti_key, "")
+st.session_state.filter_map[filter_option] = st.session_state.get(ti_key, [])
 
 if st.sidebar.button('Run Filter'):
     update_df()
@@ -116,7 +119,8 @@ if st.sidebar.button('Run Filter'):
 
 
 
-nav = st.navigation([home, dummy, assoc, cluster, regression])
+#nav = st.navigation([home, dummy, assoc, cluster, regression])
+nav = st.navigation([home, assoc, cluster, regression])
 
 nav.run()
 
