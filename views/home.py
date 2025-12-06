@@ -25,17 +25,18 @@ with st.expander("ℹ️ How to use this page", expanded=False):
         - **Salary Box Plots** – compare salary distributions across categories or skills.
 
         **Tips:**
-        - Use the **bin slider** to control how many top categories/skills are shown.
-        - Try switching between **company, title, location, experience level, work type, skills**, etc.
+        - Use the **bin slider** to control how many top items appear.
+        - Switch groupings between **company, title, location, experience level, work type, skills**, etc.
+        - Check the table first to verify filter impact.
         """
     )
 
 
 
-bin_count = st.slider('Number of top categories / skills to show', min_value=1, max_value=20, value=3, help="Controls how many top items (companies, titles, locations, skills, etc.) are shown in the plots below.")
+bin_count = st.slider('Number of top categories / skills to show', min_value=1, max_value=30, value=3, help="Controls how many top items (companies, titles, locations, skills, etc.) are shown in the plots below.")
 
 
-tab1, tab2, tab3 = st.tabs(['📋 Tabular Job Postings Data', '📊 Number of Job Postings Bar Plot', '💵 Salary Box Plots'])
+tab1, tab2, tab3, tab4 = st.tabs(['📋 Tabular Job Postings Data', '📊 Number of Job Postings Bar Plot', '💵 Salary Box Plots', '❓ Help'])
 
 
 
@@ -158,4 +159,44 @@ with tab3:
     fig.update_layout(width=900, height=500, xaxis_tickangle=25, margin=dict(l=10, r=10, t=30, b=10))
 
     st.plotly_chart(fig, use_container_width=True)
+
+
+
+with tab4:
+    st.subheader("How to use this page")
+    st.caption(
+        "This home page is your quick EDA hub for the currently filtered job dataset."
+    )
+
+    st.markdown(
+        """
+        **What this page does**
+        - Provides a lightweight overview of your **filtered job postings**.
+        - Helps you quickly sanity-check your filters before going deeper into
+          classification, regression, and association analysis pages.
+
+        **Tabs**
+        - **Tabular Job Postings Data**  
+          Shows the current filtered table.  
+          Use this to confirm the filters are affecting the dataset how you expect.
+
+        - **Number of Job Postings Bar Plot**  
+          Counts postings grouped by company, title, location, work type,
+          experience level, salary bins, or skills.
+
+        - **Salary Box Plots**  
+          Compares the distribution of **normalized_salary** across your selected grouping.
+
+        **Bin slider**
+        - Controls how many **top categories/skills** you display.
+        - Higher values show more detail but can make charts harder to read.
+
+        **Tips**
+        - If your plots look sparse, reduce the bin count or broaden filters.
+        - Skills-based plots use the one-hot skill columns
+          (everything after your metadata columns).
+        - Use this page as your “data health check” before interpreting model results.
+        """
+    )
+
 

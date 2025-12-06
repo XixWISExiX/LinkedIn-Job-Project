@@ -6,6 +6,7 @@ import re
 import numpy as np
 import pandas as pd
 from collections import Counter, defaultdict
+from regression_task.regression_algo import pretrain_all_regression
 
 # --- helper: unify posting id column name across files ---
 def standardize_posting_id(df: pd.DataFrame) -> pd.DataFrame:
