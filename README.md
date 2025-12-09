@@ -21,7 +21,13 @@ streamlit run dashboard.py
 
 4) Take `archive.zip` and place it into the following directory location `datasets`
 
-5) Extract the archive file and the data should be ready for the application to use.
+5) Extract the archive file.
+
+6) Click the following link: https://drive.google.com/file/d/1-O992INnfoE7EWBQ-WSIV9OamYh2RA6X/view?usp=sharing
+
+7) Download the file and place it into the following directory location `datasets`
+
+8) You should now have all the data ready for the application to use.
 
 ## Folders & Files
 A high-level reason and explaination to what each file and folder does as well as it's location.
